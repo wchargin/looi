@@ -5,11 +5,11 @@ import SExp
 
 import Control.Monad
 
-shouldYield :: (Eq a, Eq b, Show a, Show b) => Either a b -> b -> Expectation
-shouldYield input output = input `shouldBe` Right output
+shouldParseTo :: String -> SExp -> Expectation
+shouldParseTo input output = parse input `shouldBe` Right output
 
-shouldFail :: (Show a, Show b) => Either a b -> Expectation
-shouldFail input = input `shouldSatisfy` isLeft
+shouldFailToParse :: String -> Expectation
+shouldFailToParse input = parse input `shouldSatisfy` isLeft
   where isLeft (Left _) = True
         isLeft (Right _) = False
 
@@ -19,24 +19,24 @@ parse = parseSexp
 specSymbols :: Spec
 specSymbols = do
     it "should parse alphabetic symbols" $
-        parse "abc" `shouldYield` Symbol "abc"
+        "abc" `shouldParseTo` Symbol "abc"
     it "should parse alphanumeric symbols" $
-        parse "a113" `shouldYield` Symbol "a113"
+        "a113" `shouldParseTo` Symbol "a113"
     it "should parse symbols with alphanumeric and special characters" $
-        parse "secret:a-113" `shouldYield` Symbol "secret:a-113"
+        "secret:a-113" `shouldParseTo` Symbol "secret:a-113"
     it "should parse non-ASCII characters" $
-        parse "β-carotene" `shouldYield` Symbol "β-carotene"
-    it "should fail on symbols with initial digits" $
-        shouldFail $ parse "113-a"
+        "β-carotene" `shouldParseTo` Symbol "β-carotene"
+    it "should reject symbols with initial digits" $
+        shouldFailToParse "113-a"
 
 specNumbers :: Spec
 specNumbers = do
     it "should parse positive numbers" $
-        parse "123" `shouldYield` Number 123
+        "123" `shouldParseTo` Number 123
     it "should parse zero" $
-        parse "0" `shouldYield` Number 0
+        "0" `shouldParseTo` Number 0
     it "should parse negative numbers" $
-        parse "-123" `shouldYield` Number (-123)
+        "-123" `shouldParseTo` Number (-123)
 
 specLists :: Spec
 specLists = do
@@ -46,36 +46,36 @@ specLists = do
           ] $
           \(kind, input) ->
               it ("should parse lists with " ++ kind) $
-              parse input `shouldYield` (List $ map Number [1..3])
+              input `shouldParseTo` (List $ map Number [1..3])
     it "should parse heterogeneous lists" $
-        parse "(hal 9000)" `shouldYield` List [ Symbol "hal", Number 9000 ]
+        "(hal 9000)" `shouldParseTo` List [ Symbol "hal", Number 9000 ]
     it "should parse nested lists with the same delimiter" $
-        parse "(1 2 (3 4))" `shouldYield`
+        "(1 2 (3 4))" `shouldParseTo`
         List [ Number 1, Number 2, List [ Number 3, Number 4 ] ]
     it "should parse nested lists with different delimiters" $
-        parse "(1 2 [3 4])" `shouldYield`
+        "(1 2 [3 4])" `shouldParseTo`
         List [ Number 1, Number 2, List [ Number 3, Number 4 ] ]
-    it "should fail on nested lists with mismatched delimiters" $
-        shouldFail $ parse "(1 2 [3 4)]"
+    it "should reject nested lists with mismatched delimiters" $
+        shouldFailToParse "(1 2 [3 4)]"
     it "should parse the empty list" $
-        parse "()" `shouldYield` List []
+        "()" `shouldParseTo` List []
     it "should parse the empty list with spaces" $
-        parse "{  }" `shouldYield` List []
+        "{  }" `shouldParseTo` List []
 
 specSpaces :: Spec
 specSpaces = do
     it "should parse a list with trailing internal spaces" $
-        parse "(1 )" `shouldYield` List [Number 1]
+        "(1 )" `shouldParseTo` List [Number 1]
     it "should parse a list with leading internal spaces" $
-        parse "( 1)" `shouldYield` List [Number 1]
+        "( 1)" `shouldParseTo` List [Number 1]
     it "should parse a list with both leading and trailing internal spaces" $
-        parse "( 1 )" `shouldYield` List [Number 1]
+        "( 1 )" `shouldParseTo` List [Number 1]
     it "should parse a list with both leading and trailing internal spaces" $
-        parse "  ( 1 )  " `shouldYield` List [Number 1]
+        "  ( 1 )  " `shouldParseTo` List [Number 1]
     it "should parse a symbol with both leading and trailing spaces" $
-        parse "  abc  " `shouldYield` Symbol "abc"
+        "  abc  " `shouldParseTo` Symbol "abc"
     it "should parse a number with both leading and trailing spaces" $
-        parse "  37  " `shouldYield` Number 37
+        "  37  " `shouldParseTo` Number 37
 
 spec :: Spec
 spec =
@@ -85,7 +85,7 @@ spec =
         describe "for lists" specLists
         describe "regarding spaces" specSpaces
         it "should parse a somewhat complicated expression" $
-            parse "{abc 123 -345 (b {} 12) zyxwvut}" `shouldYield`
+            "{abc 123 -345 (b {} 12) zyxwvut}" `shouldParseTo`
             List [ Symbol "abc"
                  , Number 123
                  , Number (-345)
