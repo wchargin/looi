@@ -5,6 +5,7 @@ import qualified Data.Map as Map
 type NumericValue = Int
 
 data Value = NumV NumericValue
+           | BoolV Bool
            | ClosureV Identifier ExprC Environment  -- unary-only for now
            deriving (Eq, Show)
 
