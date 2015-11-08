@@ -61,6 +61,10 @@ specLists = do
         "()" `shouldParseTo` List []
     it "should parse the empty list with spaces" $
         "{  }" `shouldParseTo` List []
+    it "should reject an unterminated list" $
+        shouldFailToParse "("
+    it "should reject a closing delimiter with no open delimiter" $
+        shouldFailToParse ")"
 
 specSpaces :: Spec
 specSpaces = do
