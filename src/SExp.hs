@@ -9,11 +9,11 @@ module SExp ( SExp(..)
             , resolveQuasiquote
             ) where
 
-import Data.Char
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Number as PNumber
 
 import Control.Monad
+import Data.Char (isSpace)
 
 data SExp = Symbol String
           | Number Int
