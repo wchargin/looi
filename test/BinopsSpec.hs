@@ -62,6 +62,11 @@ spec = do
         it "should always compare procedures unequal" $
             let proc = ClosureV ["a", "b"] (IdC "b") emptyEnvironment
             in  proc `eqHuh` proc `shouldBe` wrap False
+        it "should compare distinct types unequal" $ do
+            NumV 3 `eqHuh` BoolV True `shouldBe` wrap False
+            BoolV False `eqHuh` NumV 0 `shouldBe` wrap False
+            ClosureV ["a", "b"] (IdC "b") emptyEnvironment
+                `eqHuh` NumV 10 `shouldBe` wrap False
     describe "<=" $ do
         let leq = applyBinop "<="
         it "should return true when strictly smaller" $
