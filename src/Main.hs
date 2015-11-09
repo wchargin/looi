@@ -12,7 +12,7 @@ import Interpreter (topEval)
 
 printResult :: Either String Value -> IO ()
 printResult (Left err) = hPutStrLn stderr err >> exitFailure
-printResult (Right val) = print val >> exitSuccess
+printResult (Right val) = putStrLn (serialize val) >> exitSuccess
 
 main :: IO ()
 main = getContents >>= (printResult . topEval)

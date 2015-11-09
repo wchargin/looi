@@ -31,3 +31,13 @@ envBind = Map.insert
 
 envLookup :: Identifier -> Environment -> Maybe Value
 envLookup = Map.lookup
+
+-- Convert a value to a string to be printed.
+-- Note that you can also just `show` the value,
+-- which will retain more information
+-- (e.g., NumV 123 will become "NumV 123" instead of just "123",
+-- and closures will contain the entire closure body and environment.)
+serialize :: Value -> String
+serialize (NumV n) = show n
+serialize (BoolV b) = if b then "true" else "false"
+serialize ClosureV{} = "#<procedure>"
