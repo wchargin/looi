@@ -34,13 +34,13 @@ numericBinopSpec (NumericBinopSpec verb op l r res) = do
 
 spec :: Spec
 spec = do
-    describe "addition" $ numericBinopSpec $
+    describe "+" $ numericBinopSpec $
         NumericBinopSpec "add" "+" 1 2 3
-    describe "subtraction" $ numericBinopSpec $
+    describe "-" $ numericBinopSpec $
         NumericBinopSpec "subtract" "-" 3 5 (-2)
-    describe "multiplication" $ numericBinopSpec $
+    describe "*" $ numericBinopSpec $
         NumericBinopSpec "multiply" "*" 3 4 12
-    describe "division" $ do
+    describe "/" $ do
         numericBinopSpec $ NumericBinopSpec "divide" "/" 7 3 2
         it "should fail to divide by a non-zero number by zero" $
             shouldFail $ applyBinop "/" (NumV 3) (NumV 0)
