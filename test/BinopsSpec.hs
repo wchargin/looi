@@ -46,3 +46,19 @@ spec = do
             shouldFail $ applyBinop "/" (NumV 3) (NumV 0)
         it "should fail to divide by zero by zero" $
             shouldFail $ applyBinop "/" (NumV 0) (NumV 0)
+    describe "eq?" $ do
+        let wrap x = Right $ BoolV x
+        let eqHuh = applyBinop "eq?"
+        it "should compare equal numbers" $
+            NumV 3 `eqHuh` NumV 3 `shouldBe` wrap True
+        it "should compare unequal numbers" $
+            NumV 10 `eqHuh` NumV 3 `shouldBe` wrap False
+        context "when comparing booleans" $ do
+            let test a b c = BoolV a `eqHuh` BoolV b `shouldBe` wrap c
+            it "should take (T, T) -> T" $ test True True True
+            it "should take (T, F) -> F" $ test True False False
+            it "should take (F, T) -> F" $ test False True False
+            it "should take (F, F) -> T" $ test False False True
+        it "should always compare procedures unequal" $
+            let proc = ClosureV ["a", "b"] (IdC "b") emptyEnvironment
+            in  applyBinop "eq?" proc proc `shouldBe` wrap False
