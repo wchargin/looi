@@ -57,6 +57,18 @@ parse (List (Symbol "func" : xs)) = do
     body <- parse $ last xs
     return $ LambdaC paramNames body
 --
+-- {with {id = Expr} ... Expr}
+parse (List [Symbol "with"]) = Left "empty `with'-expression"
+parse (List (Symbol "with" : args)) = do
+    clauses <- mapM sugarWithClause $ init args
+    let body = last args
+    desugarWith clauses body
+    where sugarWithClause (List [ id@(Symbol _)
+                                , Symbol "="
+                                , expr
+                                ]) = Right (id, expr)
+          sugarWithClause _ = Left "malformed clause in `with'-statement"
+--
 -- {if Expr Expr Expr} (IfC)
 parse (List (Symbol "if" : args)) = parseIf args
 --
@@ -78,6 +90,16 @@ parseBinop opName args = do
     ensureArity 2 ("binary operator `" ++ opName ++ "'") args
     [arg1, arg2] <- mapM parse args
     return $ BinopC opName arg1 arg2
+
+-- Desugar and parse a `with'-expression (local variable binding).
+desugarWith :: [(SExp, SExp)] -> SExp -> Either String ExprC
+desugarWith clauses body = parseQexp qbindings qexp >>= parse
+    where spliceBindings = [ ("ids", map fst clauses)
+                           , ("values", map snd clauses)
+                           ]
+          quoteBindings = [("body", body)]
+          qbindings = (quoteBindings, spliceBindings)
+          qexp = "{{func ,@ids ,body} ,@values}"
 
 -- Parse a conditional expression.
 parseIf :: [SExp] -> Either String ExprC

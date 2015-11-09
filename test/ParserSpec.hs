@@ -71,6 +71,35 @@ parseSpec = describe "parse" $ do
                 parse (List $ Symbol "+" : map Number [1..count])
                     `shouldFailWith` "arity"
 
+    context "when parsing a `with'-statement" $ do
+        it "should fail on an empty `with'-statement" $
+            parse (List [Symbol "with"]) `shouldFailWith` "empty"
+        it "should fail on a malformed clause" $
+            parse (List [ Symbol "with"
+                        , List [ Symbol "x", Number 10 ]
+                        , Symbol "x"
+                        ]) `shouldFailWith` "malformed"
+        it "should accept a `with'-statement with a body but no bindings" $
+            parse (List [Symbol "with", Number 10]) `shouldBe`
+                Right (AppC (LambdaC [] (ValueC (NumV 10))) [])
+        it "should accept a `with'-statement with one binding" $
+            parse (List [ Symbol "with"
+                        , List [ Symbol "x", Symbol "=", Number 10 ]
+                        , List [ Symbol "+", Symbol "x", Number 1 ]
+                        ]) `shouldBe`
+                Right (AppC (LambdaC ["x"]
+                                     (BinopC "+" (IdC "x") (ValueC (NumV 1))))
+                            [ValueC (NumV 10)])
+        it "should accept a `with'-statement with two bindings" $
+            parse (List [ Symbol "with"
+                        , List [ Symbol "x", Symbol "=", Number 10 ]
+                        , List [ Symbol "y", Symbol "=", Number 20]
+                        , List [ Symbol "+", Symbol "x", Symbol "y" ]
+                        ]) `shouldBe`
+                Right (AppC (LambdaC ["x", "y"]
+                                     (BinopC "+" (IdC "x") (IdC "y")))
+                            [ValueC (NumV 10), ValueC (NumV 20)])
+
     context "when parsing conditionals" $ do
         it "should parse a valid if-expression" $
             parse (List [Symbol "if", Symbol "bool", Number 10, Number 20])
