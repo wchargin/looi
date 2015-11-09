@@ -10,13 +10,44 @@ import Binops (binops)
 import CoreTypes
 import SExp
 
+
+--------------------------------------------------------------
+-- Top-level parsing
+--------------------------------------------------------------
+
+-- Parse the given expression into an s-expression and then an AST.
+topParse :: String -> Either String ExprC
+topParse = parseQexpRaw >=> ensureNoQuasiquote >=> parse
+
+-- We'll use quasiquotation ourselves in the desugaring process,
+-- but we don't want the user input to be allowed to contain quasiquotation.
+-- We'll check this up front and complain immediately if it's violated.
+ensureNoQuasiquote :: QExp -> Either String SExp
+ensureNoQuasiquote q = case resolveQuasiquote ([], []) q of
+    -- We take advantage of the fact that
+    -- the `resolveQuasiquote` function, when passed the empty binding set,
+    -- will throw an error exactly when the input actually uses quasiquotation.
+    Right s -> Right s
+    Left _ -> Left "quasiquotation is not allowed in LOOI programs"
+
+
+--------------------------------------------------------------
+-- S-expression-to-AST parsing
+--------------------------------------------------------------
+
 -- Parse an expression in the LOOI language to its AST,
 -- or yield an error message describing what went wrong.
 parse :: SExp -> Either String ExprC
+--
+-- num, true, false (ValueC)
 parse (Number n) = Right $ ValueC $ NumV n
 parse (Symbol "true") = Right $ ValueC $ BoolV True
 parse (Symbol "false") = Right $ ValueC $ BoolV False
-parse (Symbol x) = ensureIdC x
+--
+-- id (IdC)
+parse (Symbol x) = IdC <$> ensureId x
+--
+-- {func id ... Expr} (LambdaC)
 parse (List [Symbol "func"]) = Left "function definition is missing a body"
 parse (List (Symbol "func" : xs)) = do
     let paramNames = init xs
@@ -25,11 +56,16 @@ parse (List (Symbol "func" : xs)) = do
         _ -> Left "expected lambda parameter to be a symbol"
     body <- parse $ last xs
     return $ LambdaC paramNames body
+--
+-- {if Expr Expr Expr} (IfC)
 parse (List (Symbol "if" : args)) = parseIf args
+--
+-- {Expr ... Expr} (AppC or BinopC)
 parse (List (target@(Symbol name):operands))
     | isBinopName name  = parseBinop name operands
     | otherwise         = parseApplication target operands
 parse (List (target:operands)) = parseApplication target operands
+--
 parse (List []) = Left $ concat [ "empty application: "
                                 , "you must provide a function expression "
                                 , "or binary operator and operands"
@@ -38,23 +74,17 @@ parse (List []) = Left $ concat [ "empty application: "
 -- Parse a binary operator.
 -- The identifier is assumed to refer to valid operator.
 parseBinop :: Identifier -> [SExp] -> Either String ExprC
-parseBinop opName args
-    | length args == 2  = do [arg1, arg2] <- mapM parse args
-                             return $ BinopC opName arg1 arg2
-    | otherwise         = Left $ concat [ "wrong arity to binary operator: "
-                                        , "expected 2, but got "
-                                        , show $ length args
-                                        ]
+parseBinop opName args = do
+    ensureArity 2 ("binary operator `" ++ opName ++ "'") args
+    [arg1, arg2] <- mapM parse args
+    return $ BinopC opName arg1 arg2
 
 -- Parse a conditional expression.
 parseIf :: [SExp] -> Either String ExprC
-parseIf args
-    | length args == 3  = do [guard, true, false] <- mapM parse args
-                             return $ IfC guard true false
-    | otherwise         = Left $ concat [ "wrong arity to `if': "
-                                        , "expected 3, but got "
-                                        , show $ length args
-                                        ]
+parseIf args = do
+    ensureArity 3 "`if'-expression" args
+    [guard, true, false] <- mapM parse args
+    return $ IfC guard true false
 
 -- Parse a function application.
 parseApplication :: SExp -> [SExp] -> Either String ExprC
@@ -72,10 +102,16 @@ ensureId x
     | otherwise         = Right x
     where errmsg why = "illegal identifier: " ++ show x ++ " is " ++ why
 
--- Make sure a string represents a valid identifier;
--- then wrap it in an IdC.
-ensureIdC :: Identifier -> Either String ExprC
-ensureIdC = fmap IdC . ensureId
+-- Ensure that the list of operands or arguments has the right length,
+-- or raise an error if this it's wrong.
+ensureArity :: Int -> String -> [a] -> Either String [a]
+ensureArity n name xs
+    | length xs == n    = Right xs
+    | otherwise         = Left $ concat
+        [ "wrong arity to " , name, ": "
+        , "expected " , show n, ", "
+        , "but got " , show $ length xs
+        ]
 
 -- Determine whether the given identifier refers to a binary operator.
 isBinopName :: Identifier -> Bool
@@ -85,18 +121,3 @@ isBinopName = isJust . flip lookup binops
 isReservedWord :: Identifier -> Bool
 isReservedWord = flip elem reserved
   where reserved = ["true", "false", "with", "if", "func"]
-
--- Parse the given expression into an s-expression and then an AST.
-topParse :: String -> Either String ExprC
-topParse = parseQexpRaw >=> ensureNoQuasiquote >=> parse
-
--- We'll use quasiquotation ourselves in the desugaring process,
--- but we don't want the user input to be allowed to contain quasiquotation.
--- We'll check this up front and complain immediately if it's violated.
-ensureNoQuasiquote :: QExp -> Either String SExp
-ensureNoQuasiquote q = case resolveQuasiquote ([], []) q of
-    -- We take advantage of the fact that
-    -- the `resolveQuasiquote` function, when passed the empty binding set,
-    -- will throw an error exactly when the input actually uses quasiquotation.
-    Right s -> Right s
-    Left _ -> Left "quasiquotation is not allowed in LOOI programs"
