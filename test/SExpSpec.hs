@@ -88,22 +88,21 @@ specSpaces = do
 
 parseSexpSpec :: Spec
 parseSexpSpec = describe "parseSexp" $ do
-    describe "parseSexp" $ do
-        describe "for symbols" specSymbols
-        describe "for numbers" specNumbers
-        describe "for lists" specLists
-        describe "regarding spaces" specSpaces
-        it "should parse a somewhat complicated expression" $
-            "{abc 123 -345 (b {} 12) zyxwvut}" `shouldParseTo`
-            List [ Symbol "abc"
-                 , Number 123
-                 , Number (-345)
-                 , List [ Symbol "b"
-                        , List []
-                        , Number 12
-                        ]
-                 , Symbol "zyxwvut"
-                 ]
+    describe "for symbols" specSymbols
+    describe "for numbers" specNumbers
+    describe "for lists" specLists
+    describe "regarding spaces" specSpaces
+    it "should parse a somewhat complicated expression" $
+        "{abc 123 -345 (b {} 12) zyxwvut}" `shouldParseTo`
+        List [ Symbol "abc"
+             , Number 123
+             , Number (-345)
+             , List [ Symbol "b"
+                    , List []
+                    , Number 12
+                    ]
+             , Symbol "zyxwvut"
+             ]
 
 resolveQuasiquoteSpec :: Spec
 resolveQuasiquoteSpec = describe "resolveQuasiquote" $ do
