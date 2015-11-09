@@ -1,6 +1,7 @@
 -- Representation of s-expressions as an ADT,
 -- along with a parser for them.
-module SExp(SExp(Symbol, Number, List), sexp, parseSexp) where
+-- Includes support for quasiquoting.
+module SExp(SExp(..), QExp(..), sexp, parseSexp, resolveQuasiquote) where
 
 import Text.Parsec
 import Data.Char
@@ -13,6 +14,46 @@ data SExp = Symbol String
           | Number Int
           | List [SExp]
           deriving (Show, Eq)
+
+type UnquoteIdentifier = String
+
+-- A quasi-quoted expression.
+data QExp = QSymbol String
+          | QNumber Int
+          | QList [QExp]
+          | QUnquote UnquoteIdentifier
+          | QSplice UnquoteIdentifier
+          deriving (Show, Eq)
+
+type UnquoteBindings = [(UnquoteIdentifier, SExp)]
+type SplicingBindings = [(UnquoteIdentifier, [SExp])]
+type QuasiquoteBindings = (UnquoteBindings, SplicingBindings)
+
+-- Expand a quasiquoted expression into zero or more s-expressions.
+-- This is needed as a layer of indirection
+-- because QSplice (unquote-splicing) terms
+-- can contain any number of values.
+expandQuasiquote :: QuasiquoteBindings -> QExp -> Either String [SExp]
+expandQuasiquote _ (QSymbol s) = Right [Symbol s]
+expandQuasiquote _ (QNumber n) = Right [Number n]
+expandQuasiquote bs (QList xs) = do
+    subresults <- mapM (expandQuasiquote bs) xs
+    let listItems = concat subresults
+    return [List listItems]
+expandQuasiquote (ub, _) (QUnquote id) = case lookup id ub of
+    Just sexp -> Right [sexp]
+    Nothing -> Left $ "unbound unquote by the name of: `" ++ id ++ "'"
+expandQuasiquote (_, sb) (QSplice id) = case lookup id sb of
+    Just sexps -> Right sexps
+    Nothing -> Left $ "unbound unquote-splicing by the name of: `" ++ id ++ "'"
+
+resolveQuasiquote :: QuasiquoteBindings -> QExp -> Either String SExp
+resolveQuasiquote _ (QSplice _) = Left
+    "unquote-splicing is only allowed within a list, not at the top level"
+resolveQuasiquote bs qexp = case expandQuasiquote bs qexp of
+    Left err -> Left err
+    Right [single] -> Right single
+    Right _ -> Left "invariant violation: expected a single expanded SExp"
 
 -- A list, delimited by parentheses, brackets, or braces,
 -- and containing zero or more sub-expressions.

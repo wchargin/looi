@@ -5,13 +5,18 @@ import SExp
 
 import Control.Monad
 
+{-# ANN module "HLint: ignore Redundant do" #-}
+
 shouldParseTo :: String -> SExp -> Expectation
 shouldParseTo input output = parse input `shouldBe` Right output
 
-shouldFailToParse :: String -> Expectation
-shouldFailToParse input = parse input `shouldSatisfy` isLeft
+shouldFail :: (Show a, Show b) => Either a b -> Expectation
+shouldFail input = input `shouldSatisfy` isLeft
   where isLeft (Left _) = True
         isLeft (Right _) = False
+
+shouldFailToParse :: String -> Expectation
+shouldFailToParse = shouldFail . parse
 
 -- for brevity
 parse = parseSexp
@@ -81,8 +86,8 @@ specSpaces = do
     it "should parse a number with both leading and trailing spaces" $
         "  37  " `shouldParseTo` Number 37
 
-spec :: Spec
-spec =
+parseSexpSpec :: Spec
+parseSexpSpec = describe "parseSexp" $ do
     describe "parseSexp" $ do
         describe "for symbols" specSymbols
         describe "for numbers" specNumbers
@@ -99,3 +104,82 @@ spec =
                         ]
                  , Symbol "zyxwvut"
                  ]
+
+resolveQuasiquoteSpec :: Spec
+resolveQuasiquoteSpec = describe "resolveQuasiquote" $ do
+    let noBindings = ([], [])
+    let bindings = ( [ ("a", Number 1) ]
+                   , [ ("xs", [ Number 2, Number 3 ])
+                     , ("x1", [ Symbol "justOne" ])
+                     , ("x0", [])
+                     ]
+                   )
+
+    it "should expand a single symbol" $
+        resolveQuasiquote noBindings (QSymbol "x")
+        `shouldBe`
+        Right (Symbol "x")
+    it "should expand a single number" $
+        resolveQuasiquote noBindings (QNumber 20)
+        `shouldBe`
+        Right (Number 20)
+    it "should expand the empty list with no unquotes" $
+        resolveQuasiquote noBindings (QList [])
+        `shouldBe`
+        Right (List [])
+    it "should expand a singleton list with no unquotes" $
+        resolveQuasiquote noBindings (QList [ QNumber 10 ])
+        `shouldBe`
+        Right (List [ Number 10 ])
+    it "should expand a longer list with no unquotes" $
+        resolveQuasiquote noBindings (QList [ QNumber 10, QSymbol "z" ])
+        `shouldBe`
+        Right (List [ Number 10, Symbol "z" ])
+
+    describe "should expand unquote terms" $ do
+        it "at the top level" $ do
+            let input = QUnquote "a"
+            let result = resolveQuasiquote bindings input
+            result `shouldBe` Right (Number 1)
+        it "inside a list" $ do
+            let input = QList [ QNumber 0, QUnquote "a", QNumber 2 ]
+            let result = resolveQuasiquote bindings input
+            result `shouldBe` Right (List $ map Number [0, 1, 2])
+
+    describe "when expanding unquote-splicing terms" $ do
+        it "should succeed inside a list" $ do
+            let input = QList [ QNumber 1, QSplice "xs", QNumber 4 ]
+            let result = resolveQuasiquote bindings input
+            result `shouldBe` Right (List $ map Number [1, 2, 3, 4])
+
+        -- We include separate tests for splicing terms of different lengths
+        -- because one superficially reasonable implementation might just say,
+        -- "expand all the terms normally, then make sure we have exactly one;
+        -- if we don't, there was a top-level unquote-splicing term,
+        -- which is illegal."
+        -- This indeed properly handles well-formed quasiquoted expressions,
+        -- but does not account for the fact that
+        -- a quasiquoted expression at the top level
+        -- may contain exactly one term;
+        -- this is still an illegal expression and must be handled accordingly.
+        describe "should fail at the top level" $ do
+            it "with a term of length 0" $ shouldFail $
+                resolveQuasiquote bindings (QSplice "x0")
+            it "with a term of length 1" $ shouldFail $
+                resolveQuasiquote bindings (QSplice "x1")
+            it "with a term of length 2" $ shouldFail $
+                resolveQuasiquote bindings (QSplice "xs")
+
+    it "should fail on an unbound unquote binding" $
+        shouldFail $ resolveQuasiquote noBindings (QUnquote "a")
+
+    it "should fail on an unbound unquote-splicing binding" $
+        shouldFail $ resolveQuasiquote noBindings (QList [ QSplice "a" ])
+
+    it "should allow unused unquote and unquote-splicing bindings" $ do
+        let input = QList $ map QNumber [10, 11]
+        let result = resolveQuasiquote bindings input
+        result `shouldBe` Right (List $ map Number [10, 11])
+
+spec :: Spec
+spec = parseSexpSpec >> resolveQuasiquoteSpec
