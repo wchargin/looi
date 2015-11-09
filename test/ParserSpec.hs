@@ -9,7 +9,9 @@ import SExp
 import Control.Monad
 
 spec :: Spec
-spec = parseSpec
+spec = do
+    parseSpec
+    topParseSpec
 
 parseSpec :: Spec
 parseSpec = describe "parse" $ do
@@ -88,6 +90,14 @@ parseSpec = describe "parse" $ do
                 Right (AppC (IdC "my-if")
                        [ValueC (BoolV True), ValueC (NumV 10), IdC "other"])
 
+topParseSpec :: Spec
+topParseSpec = describe "topParse" $ do
+    it "should properly parse a reasonable program" $
+        topParse "((func any 5) (* x y))" `shouldBe`
+            Right (AppC (LambdaC ["any"] (ValueC $ NumV 5))
+                        [BinopC "*" (IdC "x") (IdC "y")])
+    it "should reject programs with quasiquotation" $
+        topParse "(add 1 ,x)" `shouldFailWith` "quasiquotation is not allowed"
 
 shouldFailWith :: (Show b, Eq b) => Either String b -> String -> Expectation
 shouldFailWith (Left msg) test = msg `shouldContain` test

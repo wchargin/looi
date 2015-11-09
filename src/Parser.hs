@@ -1,5 +1,5 @@
 -- Parse an s-expression into a LOOI program.
-module Parser (parse) where
+module Parser (parse, topParse) where
 
 import Data.Maybe (isJust)
 import qualified Data.Set as Set
@@ -74,3 +74,18 @@ isBinopName = isJust . flip lookup binops
 isReservedWord :: Identifier -> Bool
 isReservedWord = flip elem reserved
   where reserved = ["true", "false", "with", "if", "func"]
+
+-- Parse the given expression into an s-expression and then an AST.
+topParse :: String -> Either String ExprC
+topParse = parseQexpRaw >=> ensureNoQuasiquote >=> parse
+
+-- We'll use quasiquotation ourselves in the desugaring process,
+-- but we don't want the user input to be allowed to contain quasiquotation.
+-- We'll check this up front and complain immediately if it's violated.
+ensureNoQuasiquote :: QExp -> Either String SExp
+ensureNoQuasiquote q = case resolveQuasiquote ([], []) q of
+    -- We take advantage of the fact that
+    -- the `resolveQuasiquote` function, when passed the empty binding set,
+    -- will throw an error exactly when the input actually uses quasiquotation.
+    Right s -> Right s
+    Left _ -> Left "quasiquotation is not allowed in LOOI programs"
