@@ -177,23 +177,24 @@ topExpr = qexp >>= \x -> eof >> return x
 -- The public interface
 --------------------------------------------------------------
 
+-- Unfortunately, the parse errors have different types from our errors,
+-- so we lose a bit of context if it's a ParseError
+-- (we only get the message, not the type).
+castError :: Either ParseError a -> Either String a
+castError (Right result) = Right result
+castError (Left pe) = Left $ show pe
+
 -- Parse a given string to a quasiquoted expression,
 -- or return a parse error message.
-parseQexpRaw :: String -> Either ParseError QExp
-parseQexpRaw = parse topExpr ""
+parseQexpRaw :: String -> Either String QExp
+parseQexpRaw = castError . parse topExpr ""
 
 -- Parse a given string to a quasiquoted expression,
 -- then resolve it to an s-expression.
 -- If either step fails, yield an error message.
 --
--- Unfortunately, the errors have different types,
--- so we lose a bit of context if it's a ParseError
--- (we only get the message, not the type).
--- If you care about that, use resolveQuasiquote and handle it yourself.
 parseQexp :: QuasiquoteBindings -> String -> Either String SExp
-parseQexp bindings input = case parseQexpRaw input of
-    Right qexp -> resolveQuasiquote bindings qexp
-    Left pe -> Left $ show pe
+parseQexp bindings input = parseQexpRaw input >>= resolveQuasiquote bindings
 
 -- Parse a given string to an s-expression.
 -- If the string contains quasiquoted parts, it will throw an error.
@@ -208,4 +209,4 @@ parseSexp input = case parseQexpRaw input of
             , err
             , ")"
             ]
-    Left pe -> Left $ show pe
+    Left err -> Left err
