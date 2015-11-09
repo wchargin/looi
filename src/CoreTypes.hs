@@ -6,7 +6,7 @@ type NumericValue = Int
 
 data Value = NumV NumericValue
            | BoolV Bool
-           | ClosureV Identifier [ExprC] Environment
+           | ClosureV [Identifier] ExprC Environment
            deriving (Eq, Show)
 
 type Binop = Value -> Value -> Either String Value
