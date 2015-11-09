@@ -12,6 +12,7 @@ spec = do
     parseSexpSpec
     parseQExpRawSpec
     resolveQuasiquoteSpec
+    quasiquoteErrorHandlingSpec
 
 parseSexpSpec :: Spec
 parseSexpSpec = describe "parseSexp" $ do
@@ -271,6 +272,34 @@ resolveQuasiquoteSpec = describe "resolveQuasiquote" $ do
         let input = QList $ map QNumber [10, 11]
         let result = resolveQuasiquote bindings input
         result `shouldBe` Right (List $ map Number [10, 11])
+
+quasiquoteErrorHandlingSpec :: Spec
+quasiquoteErrorHandlingSpec = describe "error handling" $ do
+    describe "when you parse an s-expression with quasiquotation" $ do
+        let result = parseSexp ",things"
+        it "should fail" $ shouldFail result
+
+        let (Left msg) = result
+        it "should mention quasiquote" $
+            msg `shouldContain` "detected use of quasiquote"
+        it "should suggest using parseQexp" $
+            msg `shouldContain` "parseQexp"
+
+    describe "when you have a syntax error in quasiquotation" $ do
+        let result = parseQexp ([], []) ",,,"
+        it "should fail" $ shouldFail result
+
+        let (Left msg) = result
+        it "should have a parse error message" $
+            msg `shouldContain` "unexpected"  -- expect the unexpected!
+
+    describe "when you have an error in the quasiquote resolution" $ do
+        let result = parseQexp ([], []) ",uh-oh"
+        it "should fail" $ shouldFail result
+
+        let (Left msg) = result
+        it "should have the resolution error message" $
+            msg `shouldContain` "uh-oh"
 
 shouldFail :: (Show a, Show b) => Either a b -> Expectation
 shouldFail input = input `shouldSatisfy` isLeft
