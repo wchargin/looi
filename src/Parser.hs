@@ -11,18 +11,21 @@ import CoreTypes
 import SExp
 
 
+type Result a = Either String a
+type ParseResult = Result ExprC
+
 --------------------------------------------------------------
 -- Top-level parsing
 --------------------------------------------------------------
 
 -- Parse the given expression into an s-expression and then an AST.
-topParse :: String -> Either String ExprC
+topParse :: String -> ParseResult
 topParse = parseQexpRaw >=> ensureNoQuasiquote >=> parse
 
 -- We'll use quasiquotation ourselves in the desugaring process,
 -- but we don't want the user input to be allowed to contain quasiquotation.
 -- We'll check this up front and complain immediately if it's violated.
-ensureNoQuasiquote :: QExp -> Either String SExp
+ensureNoQuasiquote :: QExp -> Result SExp
 ensureNoQuasiquote q = case resolveQuasiquote ([], []) q of
     -- We take advantage of the fact that
     -- the `resolveQuasiquote` function, when passed the empty binding set,
@@ -37,7 +40,7 @@ ensureNoQuasiquote q = case resolveQuasiquote ([], []) q of
 
 -- Parse an expression in the LOOI language to its AST,
 -- or yield an error message describing what went wrong.
-parse :: SExp -> Either String ExprC
+parse :: SExp -> ParseResult
 --
 -- num, true, false (ValueC)
 parse (Number n) = Right $ ValueC $ NumV n
@@ -85,14 +88,14 @@ parse (List []) = Left $ concat [ "empty application: "
 
 -- Parse a binary operator.
 -- The identifier is assumed to refer to valid operator.
-parseBinop :: Identifier -> [SExp] -> Either String ExprC
+parseBinop :: Identifier -> [SExp] -> ParseResult
 parseBinop opName args = do
     ensureArity 2 ("binary operator `" ++ opName ++ "'") args
     [arg1, arg2] <- mapM parse args
     return $ BinopC opName arg1 arg2
 
 -- Desugar and parse a `with'-expression (local variable binding).
-desugarWith :: [(SExp, SExp)] -> SExp -> Either String ExprC
+desugarWith :: [(SExp, SExp)] -> SExp -> ParseResult
 desugarWith clauses body = parseQexp qbindings qexp >>= parse
     where spliceBindings = [ ("ids", map fst clauses)
                            , ("values", map snd clauses)
@@ -102,14 +105,14 @@ desugarWith clauses body = parseQexp qbindings qexp >>= parse
           qexp = "{{func ,@ids ,body} ,@values}"
 
 -- Parse a conditional expression.
-parseIf :: [SExp] -> Either String ExprC
+parseIf :: [SExp] -> ParseResult
 parseIf args = do
     ensureArity 3 "`if'-expression" args
     [guard, true, false] <- mapM parse args
     return $ IfC guard true false
 
 -- Parse a function application.
-parseApplication :: SExp -> [SExp] -> Either String ExprC
+parseApplication :: SExp -> [SExp] -> ParseResult
 parseApplication target args = do
     targetExpr <- parse target
     argsExprs <- mapM parse args
@@ -117,7 +120,7 @@ parseApplication target args = do
 
 -- Make sure a string represents a valid identifier;
 -- return an error message if it doesn't.
-ensureId :: Identifier -> Either String Identifier
+ensureId :: Identifier -> Result Identifier
 ensureId x
     | isBinopName x     = Left $ errmsg "a binary operator"
     | isReservedWord x  = Left $ errmsg "a reserved word"
@@ -126,7 +129,7 @@ ensureId x
 
 -- Ensure that the list of operands or arguments has the right length,
 -- or raise an error if this it's wrong.
-ensureArity :: Int -> String -> [a] -> Either String [a]
+ensureArity :: Int -> String -> [a] -> Result [a]
 ensureArity n name xs
     | length xs == n    = Right xs
     | otherwise         = Left $ concat
