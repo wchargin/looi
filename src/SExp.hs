@@ -74,6 +74,10 @@ flatDelimiters = (uncurry (++) . unzip) delimiters
 exceptSpaceOr :: [Char] -> GenParser Char () Char
 exceptSpaceOr xs = satisfy (\x -> not $ isSpace x || x `elem` xs)
 
+-- Match a parser, then another parser, then discard the second.
+followedBy :: Monad m => m a -> m b -> m a
+followedBy x y = x >>= \result -> y >> return result
+
 
 --------------------------------------------------------------
 -- Converting quasiquoted expressions to s-expressions
@@ -153,16 +157,16 @@ numberExpr = fmap QNumber PNumber.int
 
 -- An arbitrary quasiquoted expression.
 qexp :: GenParser Char () QExp
-qexp = do
-  spaces
-  x <- try unquoteExpr <|> listExpr <|> try numberExpr <|> symbolExpr
-  spaces
-  return x
+qexp = spaces >>
+        (try unquoteExpr
+         <|> listExpr
+         <|> try numberExpr
+         <|> symbolExpr) `followedBy` spaces
 
 -- The top-level quasiquoted expression,
 -- which must be terminated by the end of input.
 topExpr :: GenParser Char () QExp
-topExpr = qexp >>= \x -> eof >> return x
+topExpr = qexp `followedBy` eof
 
 --------------------------------------------------------------
 -- The public interface
