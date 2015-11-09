@@ -61,7 +61,7 @@ spec = do
             it "should take (F, F) -> T" $ test False False True
         it "should always compare procedures unequal" $
             let proc = ClosureV ["a", "b"] (IdC "b") emptyEnvironment
-            in  applyBinop "eq?" proc proc `shouldBe` wrap False
+            in  proc `eqHuh` proc `shouldBe` wrap False
     describe "<=" $ do
         let leq = applyBinop "<="
         it "should return true when strictly smaller" $
