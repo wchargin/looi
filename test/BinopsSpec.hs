@@ -62,3 +62,18 @@ spec = do
         it "should always compare procedures unequal" $
             let proc = ClosureV ["a", "b"] (IdC "b") emptyEnvironment
             in  applyBinop "eq?" proc proc `shouldBe` wrap False
+    describe "<=" $ do
+        let leq = applyBinop "<="
+        it "should return true when strictly smaller" $
+            NumV 3 `leq` NumV 5 `shouldBe` Right (BoolV True)
+        it "should return true when equal" $
+            NumV 4 `leq` NumV 4 `shouldBe` Right (BoolV True)
+        it "should return true when strictly greater" $
+            NumV 5 `leq` NumV 3 `shouldBe` Right (BoolV False)
+        it "should fail when comparing booleans to numbers" $
+            shouldFail $ BoolV True `leq` NumV 3
+        it "should fail when comparing booleans to booleans" $
+            shouldFail $ BoolV True `leq` BoolV False
+        it "should fail when comparing procedures" $
+            let proc = ClosureV ["a", "b"] (IdC "b") emptyEnvironment
+            in  shouldFail $ proc `leq` proc

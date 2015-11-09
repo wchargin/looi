@@ -19,12 +19,17 @@ eqHuh (NumV a) (NumV b)    = Right $ BoolV $ a == b
 eqHuh (BoolV a) (BoolV b)  = Right $ BoolV $ a == b
 eqHuh _ _                  = Right $ BoolV False
 
+leq :: Value -> Value -> Either String Value
+leq (NumV a) (NumV b) = Right $ BoolV $ a <= b
+leq _ _               = typeError "expected both operands to be numeric values"
+
 binops :: [(Identifier, Binop)]
 binops = [ ("+", numericBinop (+))
          , ("-", numericBinop (-))
          , ("*", numericBinop (*))
          , ("/", divide)
          , ("eq?", eqHuh)
+         , ("<=", leq)
          ]
 
 applyBinop :: Identifier -> Value -> Value -> Either String Value
