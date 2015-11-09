@@ -9,20 +9,24 @@ module SExp ( SExp(..)
             , resolveQuasiquote
             ) where
 
+
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Number as PNumber
 
 import Control.Monad
 import Data.Char (isSpace)
 
+{-# ANN module "HLint: ignore Use String" #-}
+
+--------------------------------------------------------------
+-- Data definitions
+--------------------------------------------------------------
+
 data SExp = Symbol String
           | Number Int
           | List [SExp]
           deriving (Show, Eq)
 
-type UnquoteIdentifier = String
-
--- A quasi-quoted expression.
 data QExp = QSymbol String
           | QNumber Int
           | QList [QExp]
@@ -30,9 +34,50 @@ data QExp = QSymbol String
           | QSplice UnquoteIdentifier
           deriving (Show, Eq)
 
+-- When converting a quasiquoted expression to an s-expression,
+-- we need to substitute in existing s-expressions
+-- at every QUnquote and QSplice.
+-- In the concrete syntax, these are specified by name,
+-- and then we look them up in a user-provided table;
+-- each such name is an UnquoteIdentifier.
+type UnquoteIdentifier = String
+
 type UnquoteBindings = [(UnquoteIdentifier, SExp)]
 type SplicingBindings = [(UnquoteIdentifier, [SExp])]
 type QuasiquoteBindings = (UnquoteBindings, SplicingBindings)
+
+
+--------------------------------------------------------------
+-- Constants and useful parser combinators
+--------------------------------------------------------------
+
+-- Signals the beginning of a QUnquote or QSplice.
+unquoteToken :: Char
+unquoteToken = ','
+
+-- Signals the beginning of a QSplice
+-- when immediately following the unquoteToken.
+splicingToken :: Char
+splicingToken = '@'
+
+-- Pairs of opening and closing delimiters
+-- that can all be synonymously used for lists.
+delimiters :: [(Char, Char)]
+delimiters = zip "([{" ")]}"
+
+-- A list of all delimiters
+-- (useful for exclusion from the set of valid identifier characters, e.g.).
+flatDelimiters :: [Char]
+flatDelimiters = (uncurry (++) . unzip) delimiters
+
+-- Match any character except for a space or one of the given characters.
+exceptSpaceOr :: [Char] -> GenParser Char () Char
+exceptSpaceOr xs = satisfy (\x -> not $ isSpace x || x `elem` xs)
+
+
+--------------------------------------------------------------
+-- Converting quasiquoted expressions to s-expressions
+--------------------------------------------------------------
 
 -- Expand a quasiquoted expression into zero or more s-expressions.
 -- This is needed as a layer of indirection
@@ -60,11 +105,16 @@ resolveQuasiquote bs qexp = case expandQuasiquote bs qexp of
     Right [single] -> Right single
     Right _ -> Left "invariant violation: expected a single expanded SExp"
 
+
+--------------------------------------------------------------
+-- Parsers for quasiquoted expressions
+--------------------------------------------------------------
+
 -- A list, delimited by parentheses, brackets, or braces,
 -- and containing zero or more sub-expressions.
 listExpr :: GenParser Char () QExp
-listExpr = foldl1 (<|>) $ flip map (zip "([{" ")]}") $
-  \(open, close) -> between (char open) (char close) (QList <$> qexprs)
+listExpr = foldl1 (<|>) $ flip map delimiters $
+  \(open, close) -> between (char open) (char close) (fmap QList qexprs)
 
 -- Zero or more expressions, separated and bordered by arbitrary spaces.
 qexprs :: GenParser Char () [QExp]
@@ -79,23 +129,17 @@ qexprs = do
     Nothing -> return []
 
 -- A symbol, containing any non-whitespace characters (not necessarily ASCII)
--- and not starting with a digit.
+-- and not starting with a digit or unquote token.
 symbolExpr :: GenParser Char () QExp
 symbolExpr = QSymbol <$> liftM2 (:) initial (many internal)
-  where delimiters = "([{}])"
-        templateToken = ','
-        nonWordChars = templateToken:delimiters
+  where nonWordChars = unquoteToken:flatDelimiters
         digits = ['0'..'9']
-        except xs x = not $ isSpace x || x `elem` xs
-        initial = satisfy $ except $ nonWordChars ++ digits
-        internal = satisfy $ except nonWordChars
+        initial = exceptSpaceOr $ nonWordChars ++ digits
+        internal = exceptSpaceOr nonWordChars
 
 -- The template name of an expression to be unquoted.
 unquoteName :: GenParser Char () UnquoteIdentifier
-unquoteName = many1 $ satisfy pred
-  where pred x = not $ isSpace x || x `elem` (templateToken:delimiters)
-        delimiters = "([{}])"
-        templateToken = ','
+unquoteName = many1 $ exceptSpaceOr $ unquoteToken:flatDelimiters
 
 -- An unquote-splicing (,@xs) expression.
 splicingExpr :: GenParser Char () QExp
@@ -108,8 +152,8 @@ unquoteExpr = char ',' >> spaces >> fmap QUnquote unquoteName
 -- Either an unquote-splicing or unquote expression.
 someKindOfUnquoteExpr :: GenParser Char () QExp
 --
--- note: splicing has to come first so that
--- unquote doesn't parse ",@x" as QUnquote "@x"
+-- note: splicing has to come first so that we parse, e.g., ",@x"
+-- as QSplice "x" and not QUnquote "@x"
 someKindOfUnquoteExpr = splicingExpr <|> unquoteExpr
 
 -- A positive or negative integer literal.
@@ -128,6 +172,10 @@ qexp = do
 -- which must be terminated by the end of input.
 topExpr :: GenParser Char () QExp
 topExpr = qexp >>= \x -> eof >> return x
+
+--------------------------------------------------------------
+-- The public interface
+--------------------------------------------------------------
 
 -- Parse a given string to a quasiquoted expression,
 -- or return a parse error message.
