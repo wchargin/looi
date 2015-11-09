@@ -71,6 +71,21 @@ parseSpec = describe "parse" $ do
                 parse (List $ Symbol "+" : map Number [1..count])
                     `shouldFailWith` "arity"
 
+    context "when parsing conditionals" $ do
+        it "should parse a valid if-expression" $
+            parse (List [Symbol "if", Symbol "bool", Number 10, Number 20])
+            `shouldBe`
+            Right (IfC (IdC "bool") (ValueC (NumV 10)) (ValueC (NumV 20)))
+        forM_ (zip [0, 1, 2, 4]
+                   [ "no operands"
+                   , "one operand"
+                   , "two operands"
+                   , "four operands"]) $
+            \(count, name) ->
+                it ("should reject an if-expression with " ++ name) $
+                    parse (List $ Symbol "if" : map Number [1..count])
+                        `shouldFailWith` "arity"
+
     context "when parsing applications" $ do
         it "should parse a nullary function application" $
             parse (List [Symbol "const5"]) `shouldBe`

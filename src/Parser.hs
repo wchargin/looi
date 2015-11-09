@@ -25,6 +25,7 @@ parse (List (Symbol "func" : xs)) = do
         _ -> Left "expected lambda parameter to be a symbol"
     body <- parse $ last xs
     return $ LambdaC paramNames body
+parse (List (Symbol "if" : args)) = parseIf args
 parse (List (target@(Symbol name):operands))
     | isBinopName name  = parseBinop name operands
     | otherwise         = parseApplication target operands
@@ -42,6 +43,16 @@ parseBinop opName args
                              return $ BinopC opName arg1 arg2
     | otherwise         = Left $ concat [ "wrong arity to binary operator: "
                                         , "expected 2, but got "
+                                        , show $ length args
+                                        ]
+
+-- Parse a conditional expression.
+parseIf :: [SExp] -> Either String ExprC
+parseIf args
+    | length args == 3  = do [guard, true, false] <- mapM parse args
+                             return $ IfC guard true false
+    | otherwise         = Left $ concat [ "wrong arity to `if': "
+                                        , "expected 3, but got "
                                         , show $ length args
                                         ]
 

@@ -18,6 +18,7 @@ data ExprC = ValueC Value
            | IdC Identifier
            | LambdaC [Identifier] ExprC
            | AppC ExprC [ExprC]
+           | IfC ExprC ExprC ExprC
            deriving (Eq, Show)
 
 type Environment = Map.Map Identifier Value
