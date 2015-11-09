@@ -137,24 +137,15 @@ symbolExpr = QSymbol <$> liftM2 (:) initial (many internal)
         initial = exceptSpaceOr $ nonWordChars ++ digits
         internal = exceptSpaceOr nonWordChars
 
--- The template name of an expression to be unquoted.
-unquoteName :: GenParser Char () UnquoteIdentifier
-unquoteName = many1 $ exceptSpaceOr $ unquoteToken:flatDelimiters
-
--- An unquote-splicing (,@xs) expression.
-splicingExpr :: GenParser Char () QExp
-splicingExpr = try (string ",@") >> spaces >> fmap QSplice unquoteName
-
--- An unquote (,x) expression.
-unquoteExpr :: GenParser Char () QExp
-unquoteExpr = char ',' >> spaces >> fmap QUnquote unquoteName
-
 -- Either an unquote-splicing or unquote expression.
-someKindOfUnquoteExpr :: GenParser Char () QExp
---
--- note: splicing has to come first so that we parse, e.g., ",@x"
--- as QSplice "x" and not QUnquote "@x"
-someKindOfUnquoteExpr = splicingExpr <|> unquoteExpr
+unquoteExpr :: GenParser Char () QExp
+unquoteExpr = char unquoteToken >> (splicing <|> unquote)
+    --
+    -- note: splicing has to come first so that we parse, e.g., ",@x"
+    -- as QSplice "x" and not QUnquote "@x"
+    where splicing = char splicingToken >> spaces >> fmap QSplice name
+          unquote  = spaces >> fmap QUnquote name
+          name     = many1 $ exceptSpaceOr $ unquoteToken:flatDelimiters
 
 -- A positive or negative integer literal.
 numberExpr :: GenParser Char () QExp
@@ -164,7 +155,7 @@ numberExpr = fmap QNumber PNumber.int
 qexp :: GenParser Char () QExp
 qexp = do
   spaces
-  x <- someKindOfUnquoteExpr <|> listExpr <|> try numberExpr <|> symbolExpr
+  x <- try unquoteExpr <|> listExpr <|> try numberExpr <|> symbolExpr
   spaces
   return x
 
