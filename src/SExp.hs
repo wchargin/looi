@@ -164,7 +164,7 @@ numberExpr = fmap QNumber PNumber.int
 qexp :: GenParser Char () QExp
 qexp = do
   spaces
-  x <- someKindOfUnquoteExpr <|> listExpr <|> numberExpr <|> symbolExpr
+  x <- someKindOfUnquoteExpr <|> listExpr <|> try numberExpr <|> symbolExpr
   spaces
   return x
 

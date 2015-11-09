@@ -53,6 +53,8 @@ specNumbers = do
         "0" `shouldParseTo` Number 0
     it "should parse negative numbers" $
         "-123" `shouldParseTo` Number (-123)
+    it "should parse (+ 1 2) as a list, not (fail to parse as) a number" $
+        "(+ 1 2)" `shouldParseTo` List [Symbol "+", Number 1, Number 2]
 
 specLists :: Spec
 specLists = do
