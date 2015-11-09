@@ -1,9 +1,14 @@
 -- Representation of s-expressions as an ADT,
 -- along with a parser for them.
 -- Includes support for quasiquoting.
-module SExp(SExp(..), QExp(..), sexp, parseSexp, resolveQuasiquote) where
+module SExp ( SExp(..)
+            , QExp(..)
+            , parseSexp
+            , parseQexp
+            , parseQexpRaw
+            , resolveQuasiquote
+            ) where
 
-import Text.Parsec
 import Data.Char
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Number as PNumber
@@ -57,48 +62,102 @@ resolveQuasiquote bs qexp = case expandQuasiquote bs qexp of
 
 -- A list, delimited by parentheses, brackets, or braces,
 -- and containing zero or more sub-expressions.
-listExpr :: GenParser Char () SExp
+listExpr :: GenParser Char () QExp
 listExpr = foldl1 (<|>) $ flip map (zip "([{" ")]}") $
-  \(open, close) -> between (char open) (char close) (fmap List exprs)
+  \(open, close) -> between (char open) (char close) (QList <$> qexprs)
 
 -- Zero or more expressions, separated and bordered by arbitrary spaces.
-exprs :: GenParser Char () [SExp]
-exprs = do
+qexprs :: GenParser Char () [QExp]
+qexprs = do
   -- We need these `spaces` even though expressions trim their own spaces
   -- to account for the case where the list is empty but contains spaces.
   -- (We don't want to try to parse an expression just because we see a space.)
   spaces
-  item <- optionMaybe sexp
+  item <- optionMaybe qexp
   case item of
-    Just x -> fmap (x:) exprs
+    Just x -> fmap (x:) qexprs
     Nothing -> return []
 
 -- A symbol, containing any non-whitespace characters (not necessarily ASCII)
 -- and not starting with a digit.
-symbolExpr :: GenParser Char () SExp
-symbolExpr = Symbol <$> liftM2 (:) initial (many internal)
+symbolExpr :: GenParser Char () QExp
+symbolExpr = QSymbol <$> liftM2 (:) initial (many internal)
   where delimiters = "([{}])"
+        templateToken = ','
+        nonWordChars = templateToken:delimiters
         digits = ['0'..'9']
         except xs x = not $ isSpace x || x `elem` xs
-        initial = satisfy $ except $ delimiters ++ digits
-        internal = satisfy $ except delimiters
+        initial = satisfy $ except $ nonWordChars ++ digits
+        internal = satisfy $ except nonWordChars
+
+-- The template name of an expression to be unquoted.
+unquoteName :: GenParser Char () UnquoteIdentifier
+unquoteName = many1 $ satisfy pred
+  where pred x = not $ isSpace x || x `elem` (templateToken:delimiters)
+        delimiters = "([{}])"
+        templateToken = ','
+
+-- An unquote-splicing (,@xs) expression.
+splicingExpr :: GenParser Char () QExp
+splicingExpr = try (string ",@") >> spaces >> fmap QSplice unquoteName
+
+-- An unquote (,x) expression.
+unquoteExpr :: GenParser Char () QExp
+unquoteExpr = char ',' >> spaces >> fmap QUnquote unquoteName
+
+-- Either an unquote-splicing or unquote expression.
+someKindOfUnquoteExpr :: GenParser Char () QExp
+--
+-- note: splicing has to come first so that
+-- unquote doesn't parse ",@x" as QUnquote "@x"
+someKindOfUnquoteExpr = splicingExpr <|> unquoteExpr
 
 -- A positive or negative integer literal.
-numberExpr :: GenParser Char () SExp
-numberExpr = fmap Number PNumber.int
+numberExpr :: GenParser Char () QExp
+numberExpr = fmap QNumber PNumber.int
 
--- An arbitrary s-expression.
-sexp :: GenParser Char () SExp
-sexp = do
+-- An arbitrary quasiquoted expression.
+qexp :: GenParser Char () QExp
+qexp = do
   spaces
-  x <- listExpr <|> numberExpr <|> symbolExpr
+  x <- someKindOfUnquoteExpr <|> listExpr <|> numberExpr <|> symbolExpr
   spaces
   return x
 
--- The top-level s-expression, which must be terminated by the end of input.
-topExpr :: GenParser Char () SExp
-topExpr = sexp >>= \x -> eof >> return x
+-- The top-level quasiquoted expression,
+-- which must be terminated by the end of input.
+topExpr :: GenParser Char () QExp
+topExpr = qexp >>= \x -> eof >> return x
 
--- Parse a given string to an s-expression, or return a parse error message.
-parseSexp :: String -> Either ParseError SExp
-parseSexp = parse topExpr ""
+-- Parse a given string to a quasiquoted expression,
+-- or return a parse error message.
+parseQexpRaw :: String -> Either ParseError QExp
+parseQexpRaw = parse topExpr ""
+
+-- Parse a given string to a quasiquoted expression,
+-- then resolve it to an s-expression.
+-- If either step fails, yield an error message.
+--
+-- Unfortunately, the errors have different types,
+-- so we lose a bit of context if it's a ParseError
+-- (we only get the message, not the type).
+-- If you care about that, use resolveQuasiquote and handle it yourself.
+parseQexp :: QuasiquoteBindings -> String -> Either String SExp
+parseQexp bindings input = case parseQexpRaw input of
+    Right qexp -> resolveQuasiquote bindings qexp
+    Left pe -> Left $ show pe
+
+-- Parse a given string to an s-expression.
+-- If the string contains quasiquoted parts, it will throw an error.
+parseSexp :: String -> Either String SExp
+parseSexp input = case parseQexpRaw input of
+    Right qexp -> case resolveQuasiquote ([], []) qexp of
+        Right sexp -> Right sexp
+        Left err -> Left $ concat
+            [ "detected use of quasiquote in s-expression; "
+            , "did you mean to use parseQexp and provide bindings? "
+            , "(original error: "
+            , err
+            , ")"
+            ]
+    Left pe -> Left $ show pe

@@ -8,7 +8,10 @@ import Control.Monad
 {-# ANN module "HLint: ignore Redundant do" #-}
 
 shouldParseTo :: String -> SExp -> Expectation
-shouldParseTo input output = parse input `shouldBe` Right output
+shouldParseTo input output = parseSexp input `shouldBe` Right output
+
+shouldQParseTo :: String -> QExp -> Expectation
+shouldQParseTo input output = parseQexpRaw input `shouldBe` Right output
 
 shouldFail :: (Show a, Show b) => Either a b -> Expectation
 shouldFail input = input `shouldSatisfy` isLeft
@@ -16,10 +19,10 @@ shouldFail input = input `shouldSatisfy` isLeft
         isLeft (Right _) = False
 
 shouldFailToParse :: String -> Expectation
-shouldFailToParse = shouldFail . parse
+shouldFailToParse = shouldFail . parseSexp
 
--- for brevity
-parse = parseSexp
+shouldFailToQParse :: String -> Expectation
+shouldFailToQParse = shouldFail . parseQexpRaw
 
 specSymbols :: Spec
 specSymbols = do
@@ -104,6 +107,102 @@ parseSexpSpec = describe "parseSexp" $ do
              , Symbol "zyxwvut"
              ]
 
+parseQExpRawSpec :: Spec
+parseQExpRawSpec = describe "parseQexpRaw" $ do
+    describe "should parse normal s-expressions" $ do
+        -- We're a bit light on the testing here
+        -- because we assume that the implementation delegates to
+        -- the already-tested s-expression parser
+        -- (or, rather, that the s-expression parser
+        -- is actually based on the quasiquote parser).
+        it "like a number" $
+            "10" `shouldQParseTo` QNumber 10
+        it "like a symbol" $
+            "bob" `shouldQParseTo` QSymbol "bob"
+        it "like a list" $
+            "(1 {two} 33)"
+            `shouldQParseTo`
+            QList [ QNumber 1
+                  , QList [ QSymbol "two" ]
+                  , QNumber 33
+                  ]
+
+    describe "should parse unquotes" $ do
+        it "at the top level" $
+            ",x" `shouldQParseTo` QUnquote "x"
+        it "at the top level, with a space after the comma" $
+            ", y" `shouldQParseTo` QUnquote "y"
+        describe "inside a list" $ do
+            it "inside a list" $
+                "(a ,thing z)"
+                `shouldQParseTo`
+                QList [ QSymbol "a", QUnquote "thing", QSymbol "z" ]
+            it "with a space after the comma" $
+                "(a , thing z)"
+                `shouldQParseTo`
+                QList [ QSymbol "a", QUnquote "thing", QSymbol "z" ]
+            it "with multiple consecutively" $
+                "(,a ,b ,c)"
+                `shouldQParseTo`
+                QList (map QUnquote ["a", "b", "c"])
+            describe "with no preceding space" $ do
+                it "when following a symbol" $
+                    "(a,b c)"
+                    `shouldQParseTo`
+                    QList [ QSymbol "a", QUnquote "b", QSymbol "c" ]
+                it "when following a number" $
+                    "(1,b c)"
+                    `shouldQParseTo`
+                    QList [ QNumber 1, QUnquote "b", QSymbol "c" ]
+                it "when following another unquote" $
+                    "(,a,b,c)"
+                    `shouldQParseTo`
+                    QList (map QUnquote ["a", "b", "c"])
+
+
+    describe "should parse unquote-splicings" $ do
+        it "within a list" $ do
+            "(thing1 ,@more-things thingN)"
+            `shouldQParseTo`
+            QList [ QSymbol "thing1"
+                  , QSplice "more-things"
+                  , QSymbol "thingN"
+                  ]
+        it "with a space after the \",@\"" $
+            ",@ thing" `shouldQParseTo` QSplice "thing"
+        it "with multiple consecutively" $
+            "(,@a ,@b ,@c)"
+            `shouldQParseTo`
+            QList (map QSplice ["a", "b", "c"])
+        describe "with no preceding space" $ do
+            it "when following a symbol" $
+                "(a,@b c)"
+                `shouldQParseTo`
+                QList [ QSymbol "a", QSplice "b", QSymbol "c" ]
+            it "when following a number" $
+                "(1,@b c)"
+                `shouldQParseTo`
+                QList [ QNumber 1, QSplice "b", QSymbol "c" ]
+            it "when following another unquote-splicing" $
+                "(,@a,@b,@c)"
+                `shouldQParseTo`
+                QList (map QSplice ["a", "b", "c"])
+            it "when interspersed with normal unquotes" $
+                "(,@a,b,@c,d,@e)"
+                `shouldQParseTo`
+                QList [ QSplice "a"
+                      , QUnquote "b"
+                      , QSplice "c"
+                      , QUnquote "d"
+                      , QSplice "e"
+                      ]
+        it "even at the top level (will fail during resolution)" $
+            ",@thing" `shouldQParseTo` QSplice "thing"
+        it "but not with a space between the \",\" and \"@\"" $
+            "(, @ thing)"
+            `shouldQParseTo`
+            QList [ QUnquote "@", QSymbol "thing" ]
+
 resolveQuasiquoteSpec :: Spec
 resolveQuasiquoteSpec = describe "resolveQuasiquote" $ do
     let noBindings = ([], [])
@@ -181,4 +280,4 @@ resolveQuasiquoteSpec = describe "resolveQuasiquote" $ do
         result `shouldBe` Right (List $ map Number [10, 11])
 
 spec :: Spec
-spec = parseSexpSpec >> resolveQuasiquoteSpec
+spec = parseSexpSpec >> parseQExpRawSpec >> resolveQuasiquoteSpec
