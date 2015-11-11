@@ -47,6 +47,9 @@ parse (Number n) = Right $ ValueC $ NumV n
 parse (Symbol "true") = Right $ ValueC $ BoolV True
 parse (Symbol "false") = Right $ ValueC $ BoolV False
 --
+-- strings (not supported in this version of LOOI)
+parse (String _) = Left "string literals are not supported in LOOI"
+--
 -- id (IdC)
 parse (Symbol x) = IdC <$> ensureId x
 --

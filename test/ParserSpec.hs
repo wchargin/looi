@@ -29,6 +29,9 @@ parseSpec = describe "parse" $ do
         it "should refuse to parse a reserved word as an identifier" $
             parse (Symbol "if") `shouldFailWith` "reserved word"
 
+    it "should fail on strings" $
+        parse (String "\"hi\"") `shouldFailWith` "string"
+
     context "when parsing functions" $ do
         it "should parse a constant function" $
             parse (List [Symbol "func", Number 5]) `shouldBe`

@@ -17,6 +17,7 @@ spec = do
 parseSexpSpec :: Spec
 parseSexpSpec = describe "parseSexp" $ do
     describe "for symbols" specSymbols
+    describe "for strings" specStrings
     describe "for numbers" specNumbers
     describe "for lists" specLists
     describe "regarding spaces" specSpaces
@@ -44,6 +45,23 @@ specSymbols = do
         "β-carotene" `shouldParseTo` Symbol "β-carotene"
     it "should reject symbols with initial digits" $
         shouldFailToParse "113-a"
+
+specStrings :: Spec
+specStrings = do
+    it "should parse \"strings\"" $
+        "\"abc\"" `shouldParseTo` String "abc"
+    it "should parse \"multi-word strings\"" $
+        "\"multi-word string\"" `shouldParseTo` String "multi-word string"
+    it "should parse strings with internal, escaped quotes" $
+        "\"I said, \\\"hello\\\"!\"" `shouldParseTo` String "I said, \"hello\"!"
+    it "should parse strings with internal, escaped backslashes" $
+        "\"x\\\\/x\"" `shouldParseTo` String "x\\/x"
+    it "should parse multi-line strings" $
+        "\"a\nb\"" `shouldParseTo` String "a\nb"
+    it "should fail on unterminated string literals" $
+        shouldFailToParse "\"xyz"
+    it "should fail on string literals whose terminating quote is escaped" $
+        shouldFailToParse "\"it's escaping! \\\""
 
 specNumbers :: Spec
 specNumbers = do

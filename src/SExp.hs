@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- Representation of s-expressions as an ADT,
 -- along with a parser for them.
 -- Includes support for quasiquoting.
@@ -23,11 +25,13 @@ import Data.Char (isSpace)
 --------------------------------------------------------------
 
 data SExp = Symbol String
+          | String String
           | Number Int
           | List [SExp]
           deriving (Show, Eq)
 
 data QExp = QSymbol String
+          | QString String
           | QNumber Int
           | QList [QExp]
           | QUnquote UnquoteIdentifier
@@ -89,6 +93,7 @@ followedBy x y = x >>= \result -> y >> return result
 -- can contain any number of values.
 expandQuasiquote :: QuasiquoteBindings -> QExp -> Either String [SExp]
 expandQuasiquote _ (QSymbol s) = Right [Symbol s]
+expandQuasiquote _ (QString s) = Right [String s]
 expandQuasiquote _ (QNumber n) = Right [Number n]
 expandQuasiquote bs (QList xs) = do
     subresults <- mapM (expandQuasiquote bs) xs
@@ -132,6 +137,19 @@ qexprs = do
     Just x -> fmap (x:) qexprs
     Nothing -> return []
 
+-- A string, delimited by "quotes" and allowing escape sequences.
+stringExpr :: GenParser Char () QExp
+stringExpr = fmap QString $ char '"' >> many stringChar `followedBy` char '"'
+    where stringChar = noneOf ['\\', '"'] <|> (char '\\' >> escapeSequence)
+          escapeSequence = foldl1 (<|>) (map replace escapes)
+          replace (old, new) = char old >> return new
+          escapes = [ ('\\', '\\')
+                    , ('"', '"')
+                    , ('n', '\n')
+                    , ('r', '\r')
+                    , ('t', '\t')
+                    ]
+
 -- A symbol, containing any non-whitespace characters (not necessarily ASCII)
 -- and not starting with a digit or unquote token.
 symbolExpr :: GenParser Char () QExp
@@ -160,6 +178,7 @@ qexp :: GenParser Char () QExp
 qexp = spaces >>
         (try unquoteExpr
          <|> listExpr
+         <|> stringExpr
          <|> try numberExpr
          <|> symbolExpr) `followedBy` spaces
 
