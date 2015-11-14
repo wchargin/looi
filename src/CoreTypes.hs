@@ -8,6 +8,7 @@ type NumericValue = Int
 
 data Value = NumV NumericValue
            | BoolV Bool
+           | ArrayV Address Int                         -- start, length
            | ClosureV [Identifier] ExprC Environment
            deriving (Eq, Show)
 
@@ -58,4 +59,5 @@ allocate v = do
 serialize :: Value -> String
 serialize (NumV n) = show n
 serialize (BoolV b) = if b then "true" else "false"
+serialize (ArrayV _ _) = "#<array>"
 serialize ClosureV{} = "#<procedure>"

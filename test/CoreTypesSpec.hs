@@ -35,6 +35,8 @@ spec = do
             serialize (NumV 12) `shouldBe` "12"
         it "should serialize boolean values" $
             serialize (BoolV True) `shouldBe` "true"
+        it "should serialize array values, losing their contents" $
+            serialize (ArrayV 3 5) `shouldBe` "#<array>"
         it "should serialize closures, losing all the information" $
             serialize (ClosureV ["x", "y"]
                                 (IdC "x")
