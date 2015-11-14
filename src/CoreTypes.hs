@@ -1,5 +1,7 @@
 module CoreTypes where
 
+import Control.Monad.State (State, gets, modify)
+
 import qualified Data.Map as Map
 
 type NumericValue = Int
@@ -31,6 +33,22 @@ envBind = Map.insert
 
 envLookup :: Identifier -> Environment -> Maybe Value
 envLookup = Map.lookup
+
+type Address = Int
+type Store = Map.Map Address Value
+type StoreOp α = State Store α
+
+emptyStore :: Store
+emptyStore = Map.empty
+
+storeLookup :: Address -> StoreOp (Maybe Value)
+storeLookup a = gets $ Map.lookup a
+
+allocate :: Value -> StoreOp Address
+allocate v = do
+    addr <- gets Map.size
+    modify $ Map.insert addr v
+    return addr
 
 -- Convert a value to a string to be printed.
 -- Note that you can also just `show` the value,
