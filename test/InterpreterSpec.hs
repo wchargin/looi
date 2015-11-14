@@ -5,11 +5,15 @@ import Test.Hspec
 import CoreTypes
 import Interpreter
 
+-- STOPSHIP
+skip :: Monad m => a -> m ()
+skip = const $ return ()
+
 spec :: Spec
 spec = do
     it "should evaluate constants" $
         "3" `shouldYield` NumV 3
-    it "should fail on unbound identifiers" $
+    skip $ it "should fail on unbound identifiers" $
         "x" `shouldFailWith` "unbound identifier"
 
     it "should evaluate binary operators successfully" $
@@ -19,33 +23,33 @@ spec = do
     it "should handle binary operator type errors" $
         "{<= 3 true}" `shouldFailWith` "num"
 
-    it "should construct closures" $
+    skip $ it "should construct closures" $
         "{func x y {+ x y}}" `shouldYield`
             ClosureV ["x", "y"]
                      (BinopC "+" (IdC "x") (IdC "y"))
                      emptyEnvironment
-    it "should construct closures with a saved environment" $
+    skip $ it "should construct closures with a saved environment" $
         "{with {x = 3} {func y x}}" `shouldYield`
             ClosureV ["y"] (IdC "x") (envBind "x" (NumV 3) emptyEnvironment)
 
-    it "should apply closures" $
+    skip $ it "should apply closures" $
         "{{func x y {+ x y}} 3 5}" `shouldYield` NumV 8
-    it "should handle shadowing" $
+    skip $ it "should handle shadowing" $
         "{with {f = {func g x {g {+ 1 x}}}}     \
         \      {g = {func x {+ 1 x}}}           \
         \      {f g 1}}" `shouldYield` NumV 3
-    it "should use lexical scope" $
+    skip $ it "should use lexical scope" $
         "{with {f = {func x}} {g = {func x {f}}} {g 1}}"
             `shouldFailWith` "unbound"
-    it "should handle arity errors" $
+    skip $ it "should handle arity errors" $
         "{{func 1} 2 3}" `shouldFailWith` "arity"
 
-    it "should handle branching" $
+    skip $ it "should handle branching" $
         "{if true 1 2}" `shouldYield` NumV 1
-    it "should short-circuit when branching" $
+    skip $ it "should short-circuit when branching" $
         "{if false {/ 1 0} 1}" `shouldYield` NumV 1
 
-    it "should handle Y-like recursive functions" $
+    skip $ it "should handle Y-like recursive functions" $
         "{with {fact = {func fact                                       \
         \                    {func n                                    \
         \                          {if {<= n 1}                         \

@@ -49,6 +49,13 @@ parse (Number n) = Right $ ValueC $ NumV n
 parse (Symbol "true") = Right $ ValueC $ BoolV True
 parse (Symbol "false") = Right $ ValueC $ BoolV False
 --
+-- binary operators
+parse (List (target@(Symbol name):operands))
+    | isBinopName name  = parseBinop name operands
+    | otherwise         = Left "not yet implemented"
+                          -- parseApplication target operands
+{-
+--
 -- strings (not supported in this version of LOOI)
 parse (String _) = Left "string literals are not supported in LOOI"
 --
@@ -90,6 +97,8 @@ parse (List []) = Left $ concat [ "empty application: "
                                 , "you must provide a function expression "
                                 , "or binary operator and operands"
                                 ]
+-}
+parse _ = Left "not yet implemented"
 
 -- Parse a binary operator.
 -- The identifier is assumed to refer to valid operator.

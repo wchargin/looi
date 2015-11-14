@@ -15,13 +15,14 @@ topEval = topParse >=> eval emptyEnvironment
 
 eval :: Environment -> ExprC -> Result Value
 eval _ (ValueC v) = Right v
-eval env (IdC id) = case envLookup id env of
-    Just v  -> Right v
-    Nothing -> Left $ "unbound identifier: " ++ show id
 eval env (BinopC op l r) = do
     lval <- eval env l
     rval <- eval env r
     applyBinop op lval rval
+{-
+eval env (IdC id) = case envLookup id env of
+    Just v  -> Right v
+    Nothing -> Left $ "unbound identifier: " ++ show id
 eval env (LambdaC params body) = Right $ ClosureV params body env
 eval env (AppC fun args) = eval env fun >>= \case
     ClosureV params body clenv -> do
@@ -39,6 +40,8 @@ eval env (IfC guard true false) = do
     case guardVal of
         BoolV b -> eval env $ if b then true else false
         other   -> typeError "boolean value" "conditional expression" other
+-}
+eval _ _ = Left "not yet implemented"
 
 typeError :: Show a => String -> String -> a -> Result b
 typeError expected place actual = Left $ concat
