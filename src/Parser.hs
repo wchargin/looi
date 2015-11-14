@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- Parse an s-expression into a LOOI program.
 module Parser (parse, topParse) where
 
@@ -57,7 +59,7 @@ parse (Symbol x) = IdC <$> ensureId x
 parse (List [Symbol "func"]) = Left "function definition is missing a body"
 parse (List (Symbol "func" : xs)) = do
     let paramNames = init xs
-    paramNames <- forM paramNames $ \name -> case name of
+    paramNames <- forM paramNames $ \case
         (Symbol name) -> ensureId name
         _ -> Left "expected lambda parameter to be a symbol"
     body <- parse $ last xs

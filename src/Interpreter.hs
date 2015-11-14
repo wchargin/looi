@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Interpreter (eval, topEval) where
 
 import Control.Monad
@@ -21,7 +23,7 @@ eval env (BinopC op l r) = do
     rval <- eval env r
     applyBinop op lval rval
 eval env (LambdaC params body) = Right $ ClosureV params body env
-eval env (AppC fun args) = eval env fun >>= \funVal -> case funVal of
+eval env (AppC fun args) = eval env fun >>= \case
     ClosureV params body clenv -> do
         unless (length params == length args) $ Left $ concat
             [ "wrong arity to closure: "
