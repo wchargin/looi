@@ -175,6 +175,21 @@ parseSpec = describe "parse" $ do
         doParse (List [Symbol "if", Symbol "<-", Number 1])
             `shouldFailWith` "identifier"
 
+    context "when parsing a begin" $ do
+        it "should reject an empty block" $
+            doParse (List [Symbol "begin"]) `shouldFailWith` "empty"
+        it "should accept a unary (extraneous) begin block" $
+            doParse (List [Symbol "begin", Symbol "x"]) `shouldBe`
+            Right (SeqC [IdC "x"])
+        it "should accept a binary begin block" $
+            doParse (List [ Symbol "begin"
+                          , List $ map Symbol ["x", "<-", "y"]
+                          , List $ map Symbol ["+", "x", "y"]
+                          ]) `shouldBe`
+            Right (SeqC [ SetC "x" (IdC "y")
+                        , BinopC "+" (IdC "x") (IdC "y")
+                        ])
+
 topParseSpec :: Spec
 topParseSpec = describe "topParse" $ do
     it "should properly parse a reasonable program" $

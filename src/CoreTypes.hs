@@ -33,6 +33,7 @@ data ExprC =
            -- Stateful operations
            | SetC Identifier ExprC
            | NewArrayC ExprC ExprC
+           | SeqC [ExprC]
            deriving (Eq, Show)
 
 
