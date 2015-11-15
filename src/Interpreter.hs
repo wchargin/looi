@@ -29,6 +29,10 @@ eval env (BinopC op l r) = do
     lval <- eval env l
     rval <- eval env r
     applyBinop op lval rval
+eval env (IfC guard true false) =
+    eval env guard >>= \case
+        BoolV b -> eval env $ if b then true else false
+        other   -> typeError "boolean value" "conditional expression" other
 eval env (IdC id) = case envLookup id env of
     Nothing -> throwError $ "unbound identifier: " ++ show id
     Just a  -> storeLookup a >>= \case
@@ -45,23 +49,14 @@ eval env (AppC fun args) = eval env fun >>= \case
             , "expected ", show $ length params, ", "
             , "but got ", show $ length args
             ]
-        argVals <- mapM (eval env) args
-        addrs <- mapM allocate argVals
+        addrs <- mapM (eval env >=> allocate) args
         let env' = foldl (flip $ uncurry envBind) clenv (zip params addrs)
         eval env' body
-{-
-eval env (IfC guard true false) = do
-    guardVal <- eval env guard
-    case guardVal of
-        BoolV b -> eval env $ if b then true else false
-        other   -> typeError "boolean value" "conditional expression" other
--}
 eval env (NewArrayC lenExpr elExpr) = do
     el <- eval env elExpr
     eval env lenExpr >>= \case
         NumV len    -> flip ArrayV len <$> allocateMany len el
         other       -> typeError "numeric value" "new-array" other
-eval _ _ = throwError "not yet implemented"
 
 typeError :: MonadError String m => Show a => String -> String -> a -> m b
 typeError expected place actual = throwError $ concat

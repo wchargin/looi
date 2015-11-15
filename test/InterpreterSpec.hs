@@ -11,10 +11,6 @@ import Control.Monad.State (runStateT)
 import CoreTypes
 import Interpreter
 
--- STOPSHIP
-skip :: Monad m => a -> m ()
-skip = const $ return ()
-
 spec :: Spec
 spec = do
     it "should evaluate constants" $
@@ -57,12 +53,12 @@ spec = do
     it "should handle arity errors" $
         "{{func 1} 2 3}" `shouldFailWith` "arity"
 
-    skip $ it "should handle branching" $
+    it "should handle branching" $
         "{if true 1 2}" `shouldYield` NumV 1
-    skip $ it "should short-circuit when branching" $
+    it "should short-circuit when branching" $
         "{if false {/ 1 0} 1}" `shouldYield` NumV 1
 
-    skip $ it "should handle Y-like recursive functions" $
+    it "should handle Y-like recursive functions" $
         "{with {fact = {func fact                                       \
         \                    {func n                                    \
         \                          {if {<= n 1}                         \

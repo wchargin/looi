@@ -12,11 +12,7 @@ import Control.Monad.Except (runExcept)
 spec :: Spec
 spec = do
     parseSpec
-    skip topParseSpec
-
--- STOPSHIP
-skip :: Monad m => a -> m ()
-skip = const $ return ()
+    topParseSpec
 
 doParse :: SExp -> Either String ExprC
 doParse = runExcept . parse
@@ -42,7 +38,7 @@ parseSpec = describe "parse" $ do
             doParse (Symbol "if")
                 `shouldFailWith` "reserved word"
 
-    skip $ it "should fail on strings" $
+    it "should fail on strings" $
         doParse (String "\"hi\"")
             `shouldFailWith` "string"
 
@@ -120,7 +116,7 @@ parseSpec = describe "parse" $ do
                                      (BinopC "+" (IdC "x") (IdC "y")))
                             [ValueC (NumV 10), ValueC (NumV 20)])
 
-    skip $ context "when parsing conditionals" $ do
+    context "when parsing conditionals" $ do
         it "should parse a valid if-expression" $
             doParse
                 (List [Symbol "if", Symbol "bool", Number 10, Number 20])

@@ -51,8 +51,14 @@ parse (Number n) = return $ ValueC $ NumV n
 parse (Symbol "true") = return $ ValueC $ BoolV True
 parse (Symbol "false") = return $ ValueC $ BoolV False
 --
+-- strings (not supported in this version of LOOI)
+parse (String _) = throwError "string literals are not supported in LOOI"
+--
 -- array initializers with length and value
 parse (List (Symbol "new-array" : operands)) = parseNewArray operands
+--
+-- {if Expr Expr Expr} (IfC)
+parse (List (Symbol "if" : args)) = parseIf args
 --
 -- id (IdC)
 parse (Symbol x) = IdC <$> ensureId x
@@ -88,15 +94,6 @@ parse (List []) = throwError $ concat
     , "you must provide a function expression "
     , "or binary operator and operands"
     ]
-{-
---
--- strings (not supported in this version of LOOI)
-parse (String _) = Left "string literals are not supported in LOOI"
---
--- {if Expr Expr Expr} (IfC)
-parse (List ((Symbol "if"):args)) = parseIf args
--}
-parse _ = throwError "not yet implemented"
 
 -- Parse a binary operator.
 -- The identifier is assumed to refer to valid operator.
