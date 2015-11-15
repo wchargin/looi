@@ -4,6 +4,7 @@ import Test.Hspec
 import SExp
 
 import Control.Monad
+import Control.Monad.Except (runExcept)
 
 {-# ANN module "HLint: ignore Redundant do" #-}
 
@@ -53,7 +54,9 @@ specStrings = do
     it "should parse \"multi-word strings\"" $
         "\"multi-word string\"" `shouldParseTo` String "multi-word string"
     it "should parse strings with internal, escaped quotes" $
-        "\"I said, \\\"hello\\\"!\"" `shouldParseTo` String "I said, \"hello\"!"
+        "\"I said, \\\"hello\\\"!\""
+        `shouldParseTo`
+        String "I said, \"hello\"!"
     it "should parse strings with internal, escaped backslashes" $
         "\"x\\\\/x\"" `shouldParseTo` String "x\\/x"
     it "should parse multi-line strings" $
@@ -228,40 +231,40 @@ resolveQuasiquoteSpec = describe "resolveQuasiquote" $ do
                    )
 
     it "should expand a single symbol" $
-        resolveQuasiquote noBindings (QSymbol "x")
+        resolve noBindings (QSymbol "x")
         `shouldBe`
         Right (Symbol "x")
     it "should expand a single number" $
-        resolveQuasiquote noBindings (QNumber 20)
+        resolve noBindings (QNumber 20)
         `shouldBe`
         Right (Number 20)
     it "should expand the empty list with no unquotes" $
-        resolveQuasiquote noBindings (QList [])
+        resolve noBindings (QList [])
         `shouldBe`
         Right (List [])
     it "should expand a singleton list with no unquotes" $
-        resolveQuasiquote noBindings (QList [ QNumber 10 ])
+        resolve noBindings (QList [ QNumber 10 ])
         `shouldBe`
         Right (List [ Number 10 ])
     it "should expand a longer list with no unquotes" $
-        resolveQuasiquote noBindings (QList [ QNumber 10, QSymbol "z" ])
+        resolve noBindings (QList [ QNumber 10, QSymbol "z" ])
         `shouldBe`
         Right (List [ Number 10, Symbol "z" ])
 
     describe "should expand unquote terms" $ do
         it "at the top level" $ do
             let input = QUnquote "a"
-            let result = resolveQuasiquote bindings input
+            let result = resolve bindings input
             result `shouldBe` Right (Number 1)
         it "inside a list" $ do
             let input = QList [ QNumber 0, QUnquote "a", QNumber 2 ]
-            let result = resolveQuasiquote bindings input
+            let result = resolve bindings input
             result `shouldBe` Right (List $ map Number [0, 1, 2])
 
     describe "when expanding unquote-splicing terms" $ do
         it "should succeed inside a list" $ do
             let input = QList [ QNumber 1, QSplice "xs", QNumber 4 ]
-            let result = resolveQuasiquote bindings input
+            let result = resolve bindings input
             result `shouldBe` Right (List $ map Number [1, 2, 3, 4])
 
         -- We include separate tests for splicing terms of different lengths
@@ -276,27 +279,30 @@ resolveQuasiquoteSpec = describe "resolveQuasiquote" $ do
         -- this is still an illegal expression and must be handled accordingly.
         describe "should fail at the top level" $ do
             it "with a term of length 0" $ shouldFail $
-                resolveQuasiquote bindings (QSplice "x0")
+                resolve bindings (QSplice "x0")
             it "with a term of length 1" $ shouldFail $
-                resolveQuasiquote bindings (QSplice "x1")
+                resolve bindings (QSplice "x1")
             it "with a term of length 2" $ shouldFail $
-                resolveQuasiquote bindings (QSplice "xs")
+                resolve bindings (QSplice "xs")
 
     it "should fail on an unbound unquote binding" $
-        shouldFail $ resolveQuasiquote noBindings (QUnquote "a")
+        shouldFail $ resolve noBindings (QUnquote "a")
 
     it "should fail on an unbound unquote-splicing binding" $
-        shouldFail $ resolveQuasiquote noBindings (QList [ QSplice "a" ])
+        shouldFail $ resolve noBindings (QList [ QSplice "a" ])
 
     it "should allow unused unquote and unquote-splicing bindings" $ do
         let input = QList $ map QNumber [10, 11]
-        let result = resolveQuasiquote bindings input
+        let result = resolve bindings input
         result `shouldBe` Right (List $ map Number [10, 11])
+
+    where
+        resolve bindings input = runExcept (resolveQuasiquote bindings input)
 
 quasiquoteErrorHandlingSpec :: Spec
 quasiquoteErrorHandlingSpec = describe "error handling" $ do
     describe "when you parse an s-expression with quasiquotation" $ do
-        let result = parseSexp ",things"
+        let result = runExcept $ parseSexp ",things"
         it "should fail" $ shouldFail result
 
         let (Left msg) = result
@@ -306,7 +312,7 @@ quasiquoteErrorHandlingSpec = describe "error handling" $ do
             msg `shouldContain` "parseQexp"
 
     describe "when you have a syntax error in quasiquotation" $ do
-        let result = parseQexp ([], []) ",,,"
+        let result = runExcept $ parseQexp ([], []) ",,,"
         it "should fail" $ shouldFail result
 
         let (Left msg) = result
@@ -314,7 +320,7 @@ quasiquoteErrorHandlingSpec = describe "error handling" $ do
             msg `shouldContain` "unexpected"  -- expect the unexpected!
 
     describe "when you have an error in the quasiquote resolution" $ do
-        let result = parseQexp ([], []) ",uh-oh"
+        let result = runExcept $ parseQexp ([], []) ",uh-oh"
         it "should fail" $ shouldFail result
 
         let (Left msg) = result
@@ -327,13 +333,15 @@ shouldFail input = input `shouldSatisfy` isLeft
         isLeft (Right _) = False
 
 shouldParseTo :: String -> SExp -> Expectation
-shouldParseTo input output = parseSexp input `shouldBe` Right output
+shouldParseTo input output =
+    runExcept (parseSexp input) `shouldBe` Right output
 
 shouldQParseTo :: String -> QExp -> Expectation
-shouldQParseTo input output = parseQexpRaw input `shouldBe` Right output
+shouldQParseTo input output =
+    runExcept (parseQexpRaw input) `shouldBe` Right output
 
 shouldFailToParse :: String -> Expectation
-shouldFailToParse = shouldFail . parseSexp
+shouldFailToParse = shouldFail . runExcept . parseSexp
 
 shouldFailToQParse :: String -> Expectation
-shouldFailToQParse = shouldFail . parseQexpRaw
+shouldFailToQParse = shouldFail . runExcept . parseQexpRaw

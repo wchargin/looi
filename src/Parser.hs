@@ -7,6 +7,7 @@ import Data.Maybe (isJust)
 import qualified Data.Set as Set
 
 import Control.Monad
+import Control.Monad.Trans.Except (runExcept)
 
 import Binops (binops)
 import CoreTypes
@@ -22,13 +23,13 @@ type ParseResult = Result ExprC
 
 -- Parse the given expression into an s-expression and then an AST.
 topParse :: String -> ParseResult
-topParse = parseQexpRaw >=> ensureNoQuasiquote >=> parse
+topParse s = runExcept (parseQexpRaw s) >>= ensureNoQuasiquote >>= parse
 
 -- We'll use quasiquotation ourselves in the desugaring process,
 -- but we don't want the user input to be allowed to contain quasiquotation.
 -- We'll check this up front and complain immediately if it's violated.
 ensureNoQuasiquote :: QExp -> Result SExp
-ensureNoQuasiquote q = case resolveQuasiquote ([], []) q of
+ensureNoQuasiquote q = case runExcept $ resolveQuasiquote ([], []) q of
     -- We take advantage of the fact that
     -- the `resolveQuasiquote` function, when passed the empty binding set,
     -- will throw an error exactly when the input actually uses quasiquotation.
@@ -110,7 +111,7 @@ parseBinop opName args = do
 
 -- Desugar and parse a `with'-expression (local variable binding).
 desugarWith :: [(SExp, SExp)] -> SExp -> ParseResult
-desugarWith clauses body = parseQexp qbindings qexp >>= parse
+desugarWith clauses body = runExcept (parseQexp qbindings qexp) >>= parse
     where spliceBindings = [ ("ids", map fst clauses)
                            , ("values", map snd clauses)
                            ]

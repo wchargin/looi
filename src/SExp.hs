@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase #-}
 
 -- Representation of s-expressions as an ADT,
 -- along with a parser for them.
@@ -16,6 +16,7 @@ import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Number as PNumber
 
 import Control.Monad
+import Control.Monad.Except (Except, throwError, withExcept)
 import Data.Char (isSpace)
 
 {-# ANN module "HLint: ignore Use String" #-}
@@ -91,28 +92,28 @@ followedBy x y = x >>= \result -> y >> return result
 -- This is needed as a layer of indirection
 -- because QSplice (unquote-splicing) terms
 -- can contain any number of values.
-expandQuasiquote :: QuasiquoteBindings -> QExp -> Either String [SExp]
-expandQuasiquote _ (QSymbol s) = Right [Symbol s]
-expandQuasiquote _ (QString s) = Right [String s]
-expandQuasiquote _ (QNumber n) = Right [Number n]
+expandQuasiquote :: QuasiquoteBindings -> QExp -> Except String [SExp]
+expandQuasiquote _ (QSymbol s) = return [Symbol s]
+expandQuasiquote _ (QString s) = return [String s]
+expandQuasiquote _ (QNumber n) = return [Number n]
 expandQuasiquote bs (QList xs) = do
     subresults <- mapM (expandQuasiquote bs) xs
     let listItems = concat subresults
     return [List listItems]
 expandQuasiquote (ub, _) (QUnquote id) = case lookup id ub of
-    Just sexp -> Right [sexp]
-    Nothing -> Left $ "unbound unquote by the name of: `" ++ id ++ "'"
+    Just sexp -> return [sexp]
+    Nothing -> throwError $ "unbound unquote by the name of: `" ++ id ++ "'"
 expandQuasiquote (_, sb) (QSplice id) = case lookup id sb of
-    Just sexps -> Right sexps
-    Nothing -> Left $ "unbound unquote-splicing by the name of: `" ++ id ++ "'"
+    Just sexps -> return sexps
+    Nothing -> throwError $
+        "unbound unquote-splicing by the name of: `" ++ id ++ "'"
 
-resolveQuasiquote :: QuasiquoteBindings -> QExp -> Either String SExp
-resolveQuasiquote _ (QSplice _) = Left
+resolveQuasiquote :: QuasiquoteBindings -> QExp -> Except String SExp
+resolveQuasiquote _ (QSplice _) = throwError
     "unquote-splicing is only allowed within a list, not at the top level"
-resolveQuasiquote bs qexp = case expandQuasiquote bs qexp of
-    Left err -> Left err
-    Right [single] -> Right single
-    Right _ -> Left "invariant violation: expected a single expanded SExp"
+resolveQuasiquote bs qexp = expandQuasiquote bs qexp >>= \case
+    [single] -> return single
+    _ -> throwError "invariant violation: expected a single expanded SExp"
 
 
 --------------------------------------------------------------
@@ -194,33 +195,32 @@ topExpr = qexp `followedBy` eof
 -- Unfortunately, the parse errors have different types from our errors,
 -- so we lose a bit of context if it's a ParseError
 -- (we only get the message, not the type).
-castError :: Either ParseError a -> Either String a
-castError (Right result) = Right result
-castError (Left pe) = Left $ show pe
+castError :: Either ParseError a -> Except String a
+castError (Right result) = return result
+castError (Left pe) = throwError $ show pe
 
 -- Parse a given string to a quasiquoted expression,
 -- or return a parse error message.
-parseQexpRaw :: String -> Either String QExp
+parseQexpRaw :: String -> Except String QExp
 parseQexpRaw = castError . parse topExpr ""
 
 -- Parse a given string to a quasiquoted expression,
 -- then resolve it to an s-expression.
 -- If either step fails, yield an error message.
 --
-parseQexp :: QuasiquoteBindings -> String -> Either String SExp
+parseQexp :: QuasiquoteBindings -> String -> Except String SExp
 parseQexp bindings input = parseQexpRaw input >>= resolveQuasiquote bindings
 
 -- Parse a given string to an s-expression.
 -- If the string contains quasiquoted parts, it will throw an error.
-parseSexp :: String -> Either String SExp
-parseSexp input = case parseQexpRaw input of
-    Right qexp -> case resolveQuasiquote ([], []) qexp of
-        Right sexp -> Right sexp
-        Left err -> Left $ concat
+parseSexp input = do
+    qexp <- parseQexpRaw input
+    withExcept
+        (\err -> concat
             [ "detected use of quasiquote in s-expression; "
             , "did you mean to use parseQexp and provide bindings? "
             , "(original error: "
             , err
             , ")"
-            ]
-    Left err -> Left err
+            ])
+        (resolveQuasiquote ([], []) qexp)
