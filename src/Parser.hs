@@ -57,6 +57,12 @@ parse (String _) = throwError "string literals are not supported in LOOI"
 -- array initializers with length and value
 parse (List (Symbol "new-array" : operands)) = parseNewArray operands
 --
+-- {id <- Expr} (SetC)
+parse (List [Symbol id, Symbol "<-", expr]) = do
+    id' <- ensureId id
+    expr' <- parse expr
+    return $ SetC id' expr'
+--
 -- {if Expr Expr Expr} (IfC)
 parse (List (Symbol "if" : args)) = parseIf args
 --

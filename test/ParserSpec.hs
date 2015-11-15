@@ -168,6 +168,13 @@ parseSpec = describe "parse" $ do
             Right (NewArrayC (BinopC "+" (ValueC $ NumV 1) (ValueC $ NumV 2))
                             (BinopC "+" (ValueC $ NumV 3) (ValueC $ NumV 4)))
 
+    it "should parse a local variable mutation" $
+        doParse (List [Symbol "x", Symbol "<-", Symbol "y"]) `shouldBe`
+            Right (SetC "x" (IdC "y"))
+    it "should reject a local variable mutation with an invalid identifier" $
+        doParse (List [Symbol "if", Symbol "<-", Number 1])
+            `shouldFailWith` "identifier"
+
 topParseSpec :: Spec
 topParseSpec = describe "topParse" $ do
     it "should properly parse a reasonable program" $

@@ -31,6 +31,7 @@ data ExprC =
            | AppC ExprC [ExprC]
            --
            -- Stateful operations
+           | SetC Identifier ExprC
            | NewArrayC ExprC ExprC
            deriving (Eq, Show)
 
