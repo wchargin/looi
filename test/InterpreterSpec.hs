@@ -43,7 +43,7 @@ spec = do
                      emptyEnvironment
     skip $ it "should construct closures with a saved environment" $
         "{with {x = 3} {func y x}}" `shouldYield`
-            ClosureV ["y"] (IdC "x") (envBind "x" (NumV 3) emptyEnvironment)
+            ClosureV ["y"] (IdC "x") (envBind "x" 0 emptyEnvironment)
 
     skip $ it "should apply closures" $
         "{{func x y {+ x y}} 3 5}" `shouldYield` NumV 8

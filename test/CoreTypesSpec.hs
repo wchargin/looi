@@ -13,10 +13,10 @@ spec :: Spec
 spec = do
     describe "Environment" $ do
         let env = foldr (uncurry envBind) emptyEnvironment
-                  [("x", NumV 10), ("y", NumV 20)]
+                  [("x", 10), ("y", 20)]
         it "looks up bound values" $ do
-            envLookup "x" env `shouldBe` Just (NumV 10)
-            envLookup "y" env `shouldBe` Just (NumV 20)
+            envLookup "x" env `shouldBe` Just 10
+            envLookup "y" env `shouldBe` Just 20
         it "looks up unbound values" $ do
             envLookup "z" env `shouldBe` Nothing
 
@@ -40,5 +40,5 @@ spec = do
         it "should serialize closures, losing all the information" $
             serialize (ClosureV ["x", "y"]
                                 (IdC "x")
-                                (envBind "z" (NumV 10) emptyEnvironment))
+                                (envBind "z" 10 emptyEnvironment))
                 `shouldBe` "#<procedure>"

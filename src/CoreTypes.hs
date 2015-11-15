@@ -34,19 +34,20 @@ data ExprC =
            | NewArrayC ExprC ExprC
            deriving (Eq, Show)
 
+
 --------------------------------------------------------------
 -- The environment
 --------------------------------------------------------------
 
-type Environment = Map.Map Identifier Value
+type Environment = Map.Map Identifier Address
 
 emptyEnvironment :: Environment
 emptyEnvironment = Map.empty
 
-envBind :: Identifier -> Value -> Environment -> Environment
+envBind :: Identifier -> Address -> Environment -> Environment
 envBind = Map.insert
 
-envLookup :: Identifier -> Environment -> Maybe Value
+envLookup :: Identifier -> Environment -> Maybe Address
 envLookup = Map.lookup
 
 -- Convert a value to a string to be printed.
