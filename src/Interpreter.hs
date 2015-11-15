@@ -29,10 +29,9 @@ eval env (BinopC op l r) = do
     lval <- eval env l
     rval <- eval env r
     applyBinop op lval rval
-eval env (IfC guard true false) =
-    eval env guard >>= \case
-        BoolV b -> eval env $ if b then true else false
-        other   -> typeError "boolean value" "conditional expression" other
+eval env (IfC guard true false) = eval env guard >>= \case
+    BoolV b -> eval env $ if b then true else false
+    other   -> typeError "boolean value" "conditional expression" other
 eval env (IdC id) = case envLookup id env of
     Nothing -> throwError $ "unbound identifier: " ++ show id
     Just a  -> storeLookup a >>= \case
