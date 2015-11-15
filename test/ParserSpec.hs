@@ -31,7 +31,7 @@ parseSpec = describe "parse" $ do
             doParse (Symbol name)
                 `shouldBe` Right (ValueC (BoolV value))
 
-    skip $ context "when parsing identifiers" $ do
+    context "when parsing identifiers" $ do
         it "should parse other alphanumeric symbols as identifiers" $
             doParse (Symbol "bob")
                 `shouldBe` Right (IdC "bob")
@@ -46,7 +46,7 @@ parseSpec = describe "parse" $ do
         doParse (String "\"hi\"")
             `shouldFailWith` "string"
 
-    skip $ context "when parsing functions" $ do
+    context "when parsing functions" $ do
         it "should parse a constant function" $
             doParse (List [Symbol "func", Number 5])
                 `shouldBe` Right (LambdaC [] $ ValueC (NumV 5))

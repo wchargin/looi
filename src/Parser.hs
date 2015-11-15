@@ -54,6 +54,19 @@ parse (Symbol "false") = return $ ValueC $ BoolV False
 -- array initializers with length and value
 parse (List (Symbol "new-array" : operands)) = parseNewArray operands
 --
+-- id (IdC)
+parse (Symbol x) = IdC <$> ensureId x
+--
+-- {func id ... Expr} (LambdaC)
+parse (List [Symbol "func"]) = throwError "function definition is missing a body"
+parse (List (Symbol "func" : xs)) = do
+    let paramNames = init xs
+    paramNames <- forM paramNames $ \case
+        (Symbol name) -> ensureId name
+        _ -> throwError "expected lambda parameter to be a symbol"
+    body <- parse $ last xs
+    return $ LambdaC paramNames body
+--
 -- binary operators
 parse (List (target@(Symbol name):operands))
     | isBinopName name  = parseBinop name operands
@@ -63,19 +76,6 @@ parse (List (target@(Symbol name):operands))
 --
 -- strings (not supported in this version of LOOI)
 parse (String _) = Left "string literals are not supported in LOOI"
---
--- id (IdC)
-parse (Symbol x) = IdC <$> ensureId x
---
--- {func id ... Expr} (LambdaC)
-parse (List [Symbol "func"]) = Left "function definition is missing a body"
-parse (List (Symbol "func" : xs)) = do
-    let paramNames = init xs
-    paramNames <- forM paramNames $ \case
-        (Symbol name) -> ensureId name
-        _ -> Left "expected lambda parameter to be a symbol"
-    body <- parse $ last xs
-    return $ LambdaC paramNames body
 --
 -- {with {id = Expr} ... Expr}
 parse (List [Symbol "with"]) = Left "empty `with'-expression"

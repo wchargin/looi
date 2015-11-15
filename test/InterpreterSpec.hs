@@ -19,7 +19,7 @@ spec :: Spec
 spec = do
     it "should evaluate constants" $
         "3" `shouldYield` NumV 3
-    skip $ it "should fail on unbound identifiers" $
+    it "should fail on unbound identifiers" $
         "x" `shouldFailWith` "unbound identifier"
 
     it "should evaluate binary operators successfully" $
@@ -36,7 +36,7 @@ spec = do
     it "should reject arrays with a non-numeric length" $
         "{new-array true 10}" `shouldFailWith` "numeric"
 
-    skip $ it "should construct closures" $
+    it "should construct closures" $
         "{func x y {+ x y}}" `shouldYield`
             ClosureV ["x", "y"]
                      (BinopC "+" (IdC "x") (IdC "y"))

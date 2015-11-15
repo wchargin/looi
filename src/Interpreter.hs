@@ -29,11 +29,16 @@ eval env (BinopC op l r) = do
     lval <- eval env l
     rval <- eval env r
     applyBinop op lval rval
-{-
 eval env (IdC id) = case envLookup id env of
-    Just v  -> Right v
-    Nothing -> Left $ "unbound identifier: " ++ show id
-eval env (LambdaC params body) = Right $ ClosureV params body env
+    Nothing -> throwError $ "unbound identifier: " ++ show id
+    Just a  -> storeLookup a >>= \case
+        Nothing -> throwError $ concat
+            [ "dangling pointer at store location ", show a, " "
+            , "(referenced by identifier ", show id, ")"
+            ]
+        Just v  -> return v
+eval env (LambdaC params body) = return $ ClosureV params body env
+{-
 eval env (AppC fun args) = eval env fun >>= \case
     ClosureV params body clenv -> do
         unless (length params == length args) $ Left $ concat
