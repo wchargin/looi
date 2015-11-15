@@ -30,6 +30,15 @@ spec = do
         it "looks up non-stored values" $ do
             runState (storeLookup 3) st `shouldBe` (Nothing, st)
 
+        let action = storeSet 1 (BoolV True)
+        let st' = let vals = [NumV 10, BoolV True, NumV 20]
+                  in  flip execState emptyStore $ forM vals allocate
+        it "mutates stored values" $
+            runState (action >> storeLookup 1) st `shouldBe`
+                (Just $ BoolV True, st')
+        it "returns the new value on mutation" $
+            runState action st `shouldBe` (BoolV True, st')
+
     describe "serialize" $ do
         it "should serialize numeric values" $
             serialize (NumV 12) `shouldBe` "12"

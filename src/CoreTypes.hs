@@ -4,7 +4,7 @@ module CoreTypes where
 
 import Control.Monad.State (State, gets, modify)
 import Control.Monad.Except (Except)
-import Control.Monad.State.Class (MonadState, get, gets, put)
+import Control.Monad.State.Class (MonadState, get, gets, modify, put)
 
 import qualified Data.Map as Map
 
@@ -70,6 +70,13 @@ serialize ClosureV{} = "#<procedure>"
 -- Return Nothing if the specified address is not allocated.
 storeLookup :: MonadState Store m => Address -> m (Maybe Value)
 storeLookup addr = gets $ Map.lookup addr . contents
+
+-- Set a value in the store, and return the new value.
+-- The value should already have been allocated, though this is not checked.
+storeSet :: MonadState Store m => Address -> Value -> m Value
+storeSet addr val = modify (update addr val) >> return val
+  where
+    update addr val s = s { contents = Map.insert addr val $ contents s }
 
 type Address = Int
 data Store = Store { contents :: Map.Map Address Value
