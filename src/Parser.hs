@@ -64,11 +64,11 @@ parse (List [Symbol id, Symbol "<-", expr]) = do
     return $ SetC id' expr'
 --
 -- {if Expr Expr Expr} (IfC)
-parse (List (Symbol "if" : args)) = parseIf args
+parse (List (Symbol "if":args)) = parseIf args
 --
 -- {begin Expr ...} (SeqC)
 parse (List [Symbol "begin"]) = throwError "begin block must not be empty"
-parse (List (Symbol "begin" : exprs)) = SeqC <$> mapM parse exprs
+parse (List (Symbol "begin":exprs)) = SeqC <$> mapM parse exprs
 --
 -- id (IdC)
 parse (Symbol x) = IdC <$> ensureId x
