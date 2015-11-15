@@ -160,9 +160,16 @@ ensureArity n name xs
         , "but got " , show $ length xs
         ]
 
--- Determine whether the given identifier refers to a binary operator.
-
 -- Determine whether the given identifier is a reserved word.
 isReservedWord :: Identifier -> Bool
 isReservedWord = flip elem reserved
-  where reserved = ["true", "false", "with", "if", "func"]
+  where
+      reserved =
+          [ "true"
+          , "false"
+          , "with"
+          , "if"
+          , "func"
+          , "<-"
+          , "new-array"
+          ]
