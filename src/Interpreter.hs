@@ -1,19 +1,26 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Interpreter (eval, topEval) where
+module Interpreter (eval, parseEval, topEval) where
 
 import Control.Monad
 import Control.Monad.Except (Except, throwError)
-import Control.Monad.State (StateT, evalStateT)
+import Control.Monad.State (StateT, evalStateT, runStateT)
 import Control.Monad.Trans (lift)
 
 import Binops (applyBinop)
 import CoreTypes
 import Parser (topParse)
 
+-- Parse and evaluate a full program, returning the final value.
 topEval :: String -> Except String Value
 topEval = topParse >=> (`evalStateT` emptyStore) . eval emptyEnvironment
 
+-- Parse and evaluate a full program,
+-- returning the final value and the store.
+parseEval :: String -> Except String (Value, Store)
+parseEval = topParse >=> (`runStateT` emptyStore) . eval emptyEnvironment
+
+-- Evaluate an expression in the given environment.
 eval :: Environment -> ExprC -> StateT Store (Except String) Value
 eval _ (ValueC v) = return v
 eval env (BinopC op l r) = do
@@ -42,6 +49,11 @@ eval env (IfC guard true false) = do
         BoolV b -> eval env $ if b then true else false
         other   -> typeError "boolean value" "conditional expression" other
 -}
+eval env (NewArrayC lenExpr elExpr) = do
+    el <- eval env elExpr
+    eval env lenExpr >>= \case
+        NumV len    -> flip ArrayV len <$> allocateMany len el
+        other       -> lift $ typeError "numeric value" "new-array" other
 eval _ _ = lift $ throwError "not yet implemented"
 
 typeError :: Show a => String -> String -> a -> Except String b

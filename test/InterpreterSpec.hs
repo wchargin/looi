@@ -1,8 +1,12 @@
+{-# LANGUAGE TupleSections #-}
+
 module InterpreterSpec where
 
 import Test.Hspec
 
+import qualified Data.Map as Map
 import Control.Monad.Except (runExcept)
+import Control.Monad.State (runStateT)
 
 import CoreTypes
 import Interpreter
@@ -24,6 +28,13 @@ spec = do
         "{/ 1 0}" `shouldFailWith` "zero"
     it "should handle binary operator type errors" $
         "{<= 3 true}" `shouldFailWith` "num"
+
+    it "should construct arrays" $
+        (runExcept . parseEval) "{new-array 3 5}" `shouldBe`
+            Right (ArrayV 0 3,
+                   Store (Map.fromList $ map (, NumV 5) [0, 1, 2]) 3)
+    it "should reject arrays with a non-numeric length" $
+        "{new-array true 10}" `shouldFailWith` "numeric"
 
     skip $ it "should construct closures" $
         "{func x y {+ x y}}" `shouldYield`
