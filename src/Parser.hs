@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, FlexibleContexts #-}
 
 -- Parse an s-expression into a LOOI program.
 module Parser (parse, topParse) where
@@ -67,30 +67,15 @@ parse (List (Symbol "func" : xs)) = do
     body <- parse $ last xs
     return $ LambdaC paramNames body
 --
--- binary operators
-parse (List (target@(Symbol name):operands))
-    | isBinopName name  = parseBinop name operands
-    | otherwise         = throwError "not yet implemented"
-                          -- parseApplication target operands
-{-
---
--- strings (not supported in this version of LOOI)
-parse (String _) = Left "string literals are not supported in LOOI"
---
 -- {with {id = Expr} ... Expr}
-parse (List [Symbol "with"]) = Left "empty `with'-expression"
+parse (List [Symbol "with"]) = throwError "empty `with'-expression"
 parse (List (Symbol "with" : args)) = do
     clauses <- mapM sugarWithClause $ init args
     let body = last args
     desugarWith clauses body
-    where sugarWithClause (List [ id@(Symbol _)
-                                , Symbol "="
-                                , expr
-                                ]) = Right (id, expr)
-          sugarWithClause _ = Left "malformed clause in `with'-statement"
---
--- {if Expr Expr Expr} (IfC)
-parse (List (Symbol "if" : args)) = parseIf args
+  where
+    sugarWithClause (List [id@(Symbol _), Symbol "=", x]) = return (id, x)
+    sugarWithClause _ = throwError "malformed clause in `with'-statement"
 --
 -- {Expr ... Expr} (AppC or BinopC)
 parse (List (target@(Symbol name):operands))
@@ -98,10 +83,18 @@ parse (List (target@(Symbol name):operands))
     | otherwise         = parseApplication target operands
 parse (List (target:operands)) = parseApplication target operands
 --
-parse (List []) = Left $ concat [ "empty application: "
-                                , "you must provide a function expression "
-                                , "or binary operator and operands"
-                                ]
+parse (List []) = throwError $ concat
+    [ "empty application: "
+    , "you must provide a function expression "
+    , "or binary operator and operands"
+    ]
+{-
+--
+-- strings (not supported in this version of LOOI)
+parse (String _) = Left "string literals are not supported in LOOI"
+--
+-- {if Expr Expr Expr} (IfC)
+parse (List ((Symbol "if"):args)) = parseIf args
 -}
 parse _ = throwError "not yet implemented"
 

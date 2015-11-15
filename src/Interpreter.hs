@@ -38,18 +38,18 @@ eval env (IdC id) = case envLookup id env of
             ]
         Just v  -> return v
 eval env (LambdaC params body) = return $ ClosureV params body env
-{-
 eval env (AppC fun args) = eval env fun >>= \case
     ClosureV params body clenv -> do
-        unless (length params == length args) $ Left $ concat
+        unless (length params == length args) $ throwError $ concat
             [ "wrong arity to closure: "
             , "expected ", show $ length params, ", "
             , "but got ", show $ length args
             ]
         argVals <- mapM (eval env) args
-        let newEnv = foldl (flip $ uncurry envBind) clenv (zip params argVals)
-        eval newEnv body
-    other -> typeError "closure value" "function application" other
+        addrs <- mapM allocate argVals
+        let env' = foldl (flip $ uncurry envBind) clenv (zip params addrs)
+        eval env' body
+{-
 eval env (IfC guard true false) = do
     guardVal <- eval env guard
     case guardVal of

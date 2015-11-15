@@ -76,7 +76,7 @@ parseSpec = describe "parse" $ do
             doParse (List [Symbol "func", Symbol "if", Symbol "bad"])
                 `shouldFailWith` "illegal identifier"
 
-    skip $ it "should fail on an empty application" $
+    it "should fail on an empty application" $
         doParse (List []) `shouldFailWith` "empty application"
 
     context "when parsing binary operators" $ do
@@ -90,7 +90,7 @@ parseSpec = describe "parse" $ do
                 doParse (List $ Symbol "+" : map Number [1..count])
                     `shouldFailWith` "arity"
 
-    skip $ context "when parsing a `with'-statement" $ do
+    context "when parsing a `with'-statement" $ do
         it "should fail on an empty `with'-statement" $
             doParse (List [Symbol "with"]) `shouldFailWith` "empty"
         it "should fail on a malformed clause" $
@@ -137,7 +137,7 @@ parseSpec = describe "parse" $ do
                         (List $ Symbol "if" : map Number [1..count])
                         `shouldFailWith` "arity"
 
-    skip $ context "when parsing applications" $ do
+    context "when parsing applications" $ do
         it "should parse a nullary function application" $
             doParse (List [Symbol "const5"])
             `shouldBe` Right (AppC (IdC "const5") [])

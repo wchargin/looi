@@ -41,20 +41,20 @@ spec = do
             ClosureV ["x", "y"]
                      (BinopC "+" (IdC "x") (IdC "y"))
                      emptyEnvironment
-    skip $ it "should construct closures with a saved environment" $
+    it "should construct closures with a saved environment" $
         "{with {x = 3} {func y x}}" `shouldYield`
             ClosureV ["y"] (IdC "x") (envBind "x" 0 emptyEnvironment)
 
-    skip $ it "should apply closures" $
+    it "should apply closures" $
         "{{func x y {+ x y}} 3 5}" `shouldYield` NumV 8
-    skip $ it "should handle shadowing" $
+    it "should handle shadowing" $
         "{with {f = {func g x {g {+ 1 x}}}}     \
         \      {g = {func x {+ 1 x}}}           \
         \      {f g 1}}" `shouldYield` NumV 3
-    skip $ it "should use lexical scope" $
+    it "should use lexical scope" $
         "{with {f = {func x}} {g = {func x {f}}} {g 1}}"
             `shouldFailWith` "unbound"
-    skip $ it "should handle arity errors" $
+    it "should handle arity errors" $
         "{{func 1} 2 3}" `shouldFailWith` "arity"
 
     skip $ it "should handle branching" $
