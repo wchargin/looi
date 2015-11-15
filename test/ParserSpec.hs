@@ -106,11 +106,10 @@ parseSpec = describe "parse" $ do
             doParse (List [ Symbol "with"
                         , List [ Symbol "x", Symbol "=", Number 10 ]
                         , List [ Symbol "+", Symbol "x", Number 1 ]
-                        ])
-                `shouldBe`
-                    Right (AppC (LambdaC ["x"]
-                                         (BinopC "+" (IdC "x") (ValueC (NumV 1))))
-                                [ValueC (NumV 10)])
+                        ]) `shouldBe`
+                Right (AppC (LambdaC ["x"]
+                                     (BinopC "+" (IdC "x") (ValueC (NumV 1))))
+                            [ValueC (NumV 10)])
         it "should accept a `with'-statement with two bindings" $
             doParse (List [ Symbol "with"
                         , List [ Symbol "x", Symbol "=", Number 10 ]
