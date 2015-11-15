@@ -3,23 +3,23 @@
 module Interpreter (eval, topEval) where
 
 import Control.Monad
-import Control.Monad.Except (Except, runExcept, throwError)
+import Control.Monad.Except (Except, throwError)
+import Control.Monad.State (StateT, evalStateT)
+import Control.Monad.Trans (lift)
 
 import Binops (applyBinop)
 import CoreTypes
 import Parser (topParse)
 
-type Result a = Except String a
+topEval :: String -> Except String Value
+topEval = topParse >=> (`evalStateT` emptyStore) . eval emptyEnvironment
 
-topEval :: String -> Result Value
-topEval = topParse >=> eval emptyEnvironment
-
-eval :: Environment -> ExprC -> Result Value
+eval :: Environment -> ExprC -> StateT Store (Except String) Value
 eval _ (ValueC v) = return v
 eval env (BinopC op l r) = do
     lval <- eval env l
     rval <- eval env r
-    applyBinop op lval rval
+    lift $ applyBinop op lval rval
 {-
 eval env (IdC id) = case envLookup id env of
     Just v  -> Right v
@@ -42,9 +42,9 @@ eval env (IfC guard true false) = do
         BoolV b -> eval env $ if b then true else false
         other   -> typeError "boolean value" "conditional expression" other
 -}
-eval _ _ = throwError "not yet implemented"
+eval _ _ = lift $ throwError "not yet implemented"
 
-typeError :: Show a => String -> String -> a -> Result b
+typeError :: Show a => String -> String -> a -> Except String b
 typeError expected place actual = throwError $ concat
     [ "type error: "
     , "expected ", expected, " in ", place, ", "
