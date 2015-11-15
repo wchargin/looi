@@ -20,12 +20,20 @@ type Binop = Value -> Value -> Except String Value
 
 type Identifier = String
 
-data ExprC = ValueC Value
+data ExprC =
+           --
+           -- Expressional operations
+             ValueC Value
            | BinopC Identifier ExprC ExprC
+           | IfC ExprC ExprC ExprC
+           --
+           -- Functional operations
            | IdC Identifier
            | LambdaC [Identifier] ExprC
            | AppC ExprC [ExprC]
-           | IfC ExprC ExprC ExprC
+           --
+           -- Stateful operations
+           | NewArrayC ExprC ExprC
            deriving (Eq, Show)
 
 --------------------------------------------------------------
