@@ -7,14 +7,14 @@ import Data.Maybe (isJust)
 import qualified Data.Set as Set
 
 import Control.Monad
-import Control.Monad.Trans.Except (runExcept)
+import Control.Monad.Except (Except, withExcept, throwError)
 
 import Binops (binops)
 import CoreTypes
 import SExp
 
 
-type Result a = Either String a
+type Result a = Except String a
 type ParseResult = Result ExprC
 
 --------------------------------------------------------------
@@ -23,18 +23,19 @@ type ParseResult = Result ExprC
 
 -- Parse the given expression into an s-expression and then an AST.
 topParse :: String -> ParseResult
-topParse s = runExcept (parseQexpRaw s) >>= ensureNoQuasiquote >>= parse
+topParse = parseQexpRaw >=> ensureNoQuasiquote >=> parse
 
 -- We'll use quasiquotation ourselves in the desugaring process,
 -- but we don't want the user input to be allowed to contain quasiquotation.
 -- We'll check this up front and complain immediately if it's violated.
 ensureNoQuasiquote :: QExp -> Result SExp
-ensureNoQuasiquote q = case runExcept $ resolveQuasiquote ([], []) q of
+ensureNoQuasiquote q =
     -- We take advantage of the fact that
     -- the `resolveQuasiquote` function, when passed the empty binding set,
     -- will throw an error exactly when the input actually uses quasiquotation.
-    Right s -> Right s
-    Left _ -> Left "quasiquotation is not allowed in LOOI programs"
+    withExcept
+        (const "quasiquotation is not allowed in LOOI programs")
+        (resolveQuasiquote ([], []) q)
 
 
 --------------------------------------------------------------
@@ -46,14 +47,14 @@ ensureNoQuasiquote q = case runExcept $ resolveQuasiquote ([], []) q of
 parse :: SExp -> ParseResult
 --
 -- num, true, false (ValueC)
-parse (Number n) = Right $ ValueC $ NumV n
-parse (Symbol "true") = Right $ ValueC $ BoolV True
-parse (Symbol "false") = Right $ ValueC $ BoolV False
+parse (Number n) = return $ ValueC $ NumV n
+parse (Symbol "true") = return $ ValueC $ BoolV True
+parse (Symbol "false") = return $ ValueC $ BoolV False
 --
 -- binary operators
 parse (List (target@(Symbol name):operands))
     | isBinopName name  = parseBinop name operands
-    | otherwise         = Left "not yet implemented"
+    | otherwise         = throwError "not yet implemented"
                           -- parseApplication target operands
 {-
 --
@@ -99,7 +100,7 @@ parse (List []) = Left $ concat [ "empty application: "
                                 , "or binary operator and operands"
                                 ]
 -}
-parse _ = Left "not yet implemented"
+parse _ = throwError "not yet implemented"
 
 -- Parse a binary operator.
 -- The identifier is assumed to refer to valid operator.
@@ -111,7 +112,7 @@ parseBinop opName args = do
 
 -- Desugar and parse a `with'-expression (local variable binding).
 desugarWith :: [(SExp, SExp)] -> SExp -> ParseResult
-desugarWith clauses body = runExcept (parseQexp qbindings qexp) >>= parse
+desugarWith clauses body = parseQexp qbindings qexp >>= parse
     where spliceBindings = [ ("ids", map fst clauses)
                            , ("values", map snd clauses)
                            ]
@@ -137,17 +138,17 @@ parseApplication target args = do
 -- return an error message if it doesn't.
 ensureId :: Identifier -> Result Identifier
 ensureId x
-    | isBinopName x     = Left $ errmsg "a binary operator"
-    | isReservedWord x  = Left $ errmsg "a reserved word"
-    | otherwise         = Right x
+    | isBinopName x     = throwError $ errmsg "a binary operator"
+    | isReservedWord x  = throwError $ errmsg "a reserved word"
+    | otherwise         = return x
     where errmsg why = "illegal identifier: " ++ show x ++ " is " ++ why
 
 -- Ensure that the list of operands or arguments has the right length,
 -- or raise an error if this it's wrong.
 ensureArity :: Int -> String -> [a] -> Result [a]
 ensureArity n name xs
-    | length xs == n    = Right xs
-    | otherwise         = Left $ concat
+    | length xs == n    = return xs
+    | otherwise         = throwError $ concat
         [ "wrong arity to " , name, ": "
         , "expected " , show n, ", "
         , "but got " , show $ length xs

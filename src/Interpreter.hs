@@ -4,6 +4,7 @@ module Interpreter (eval, topEval) where
 
 import Control.Monad
 import Control.Monad.State (evalState)
+import Control.Monad.Except (runExcept)
 
 import Binops (applyBinop)
 import CoreTypes
@@ -12,7 +13,7 @@ import Parser (topParse)
 type Result a = Either String a
 
 topEval :: String -> Result Value
-topEval = topParse >=> baseEval
+topEval = (runExcept . topParse) >=> baseEval
 
 -- Evaluate an expression in the empty environment and the empty store,
 -- then discard the final state of the store and just return the value.
