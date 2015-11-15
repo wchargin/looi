@@ -16,8 +16,6 @@ data Value = NumV NumericValue
            | ClosureV [Identifier] ExprC Environment
            deriving (Eq, Show)
 
-type Binop = Value -> Value -> Except String Value
-
 type Identifier = String
 
 data ExprC =

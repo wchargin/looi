@@ -9,7 +9,7 @@ import qualified Data.Set as Set
 import Control.Monad
 import Control.Monad.Except (Except, withExcept, throwError)
 
-import Binops (binops)
+import Binops (isBinopName)
 import CoreTypes
 import SExp
 
@@ -165,8 +165,6 @@ ensureArity n name xs
         ]
 
 -- Determine whether the given identifier refers to a binary operator.
-isBinopName :: Identifier -> Bool
-isBinopName = isJust . flip lookup binops
 
 -- Determine whether the given identifier is a reserved word.
 isReservedWord :: Identifier -> Bool

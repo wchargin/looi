@@ -1,11 +1,12 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, FlexibleContexts #-}
 
 module Interpreter (eval, parseEval, topEval) where
 
 import Control.Monad
 import Control.Monad.Except (Except, throwError)
 import Control.Monad.State (StateT, evalStateT, runStateT)
-import Control.Monad.Trans (lift)
+import Control.Monad.State.Class (MonadState)
+import Control.Monad.Error.Class (MonadError)
 
 import Binops (applyBinop)
 import CoreTypes
@@ -21,12 +22,13 @@ parseEval :: String -> Except String (Value, Store)
 parseEval = topParse >=> (`runStateT` emptyStore) . eval emptyEnvironment
 
 -- Evaluate an expression in the given environment.
-eval :: Environment -> ExprC -> StateT Store (Except String) Value
+eval :: (MonadError String m, MonadState Store m) =>
+    Environment -> ExprC -> m Value
 eval _ (ValueC v) = return v
 eval env (BinopC op l r) = do
     lval <- eval env l
     rval <- eval env r
-    lift $ applyBinop op lval rval
+    applyBinop op lval rval
 {-
 eval env (IdC id) = case envLookup id env of
     Just v  -> Right v
@@ -53,10 +55,10 @@ eval env (NewArrayC lenExpr elExpr) = do
     el <- eval env elExpr
     eval env lenExpr >>= \case
         NumV len    -> flip ArrayV len <$> allocateMany len el
-        other       -> lift $ typeError "numeric value" "new-array" other
-eval _ _ = lift $ throwError "not yet implemented"
+        other       -> typeError "numeric value" "new-array" other
+eval _ _ = throwError "not yet implemented"
 
-typeError :: Show a => String -> String -> a -> Except String b
+typeError :: MonadError String m => Show a => String -> String -> a -> m b
 typeError expected place actual = throwError $ concat
     [ "type error: "
     , "expected ", expected, " in ", place, ", "
