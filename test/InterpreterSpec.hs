@@ -53,6 +53,16 @@ spec = do
     it "should handle arity errors" $
         "{{func 1} 2 3}" `shouldFailWith` "arity"
 
+    it "should allow mutation of local bindings" $
+        "{with {x = 1} {begin {x <- 2} {+ x 3}}}" `shouldYield` NumV 5
+
+    it "should fail on mutation of unbound identifiers" $
+        "{x <- 11}" `shouldFailWith` "unbound"
+
+    it "should handle sequential mutation" $
+        "{with {x = 1} {y = 2} {begin {y <- {+ y 1}} {x <- {+ x y}} {+ x y}}}"
+            `shouldYield` NumV 7
+
     it "should handle branching" $
         "{if true 1 2}" `shouldYield` NumV 1
     it "should short-circuit when branching" $

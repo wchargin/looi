@@ -57,6 +57,10 @@ eval env (NewArrayC lenExpr elExpr) = do
     eval env lenExpr >>= \case
         NumV len    -> flip ArrayV len <$> allocateMany len el
         other       -> typeError "numeric value" "new-array" other
+eval env (SeqC exprs) = last <$> mapM (eval env) exprs
+eval env (SetC id val) = case envLookup id env of
+    Nothing -> throwError $ "unbound identifier: " ++ show id
+    Just a  -> eval env val >>= storeSet a
 
 typeError :: MonadError String m => Show a => String -> String -> a -> m b
 typeError expected place actual = throwError $ concat
