@@ -2,6 +2,8 @@ module BinopsSpec where
 
 import Test.Hspec
 
+import Control.Monad.Except (Except, runExcept)
+
 import Binops
 import CoreTypes
 import Data.List (zipWith4)
@@ -10,6 +12,9 @@ shouldFail :: (Show a, Show b) => Either a b -> Expectation
 shouldFail input = input `shouldSatisfy` isLeft
   where isLeft (Left _) = True
         isLeft (Right _) = False
+
+doApplyBinop :: Identifier -> Value -> Value -> Either String Value
+doApplyBinop o l r = runExcept $ applyBinop o l r
 
 data NumericBinopSpec = NumericBinopSpec { verb :: String
                                          , opName :: Identifier
@@ -24,13 +29,13 @@ numericBinopSpec (NumericBinopSpec verb op l r res) = do
     let right = NumV r
     let expected = Right $ NumV res
     it ("should " ++ verb ++ " two numeric arguments") $
-        applyBinop op left right `shouldBe` expected
+        doApplyBinop op left right `shouldBe` expected
     it ("should fail to " ++ verb ++ " a non-numeric left operand") $
-        shouldFail $ applyBinop op (BoolV True) right
+        shouldFail $ doApplyBinop op (BoolV True) right
     it ("should fail to " ++ verb ++ " a non-numeric right operand") $
-        shouldFail $ applyBinop op left (BoolV False)
+        shouldFail $ doApplyBinop op left (BoolV False)
     it ("should fail to " ++ verb ++ " when both operands are non-numeric") $
-        shouldFail $ applyBinop op (BoolV True) (BoolV False)
+        shouldFail $ doApplyBinop op (BoolV True) (BoolV False)
 
 spec :: Spec
 spec = do
@@ -43,12 +48,12 @@ spec = do
     describe "/" $ do
         numericBinopSpec $ NumericBinopSpec "divide" "/" 7 3 2
         it "should fail to divide by a non-zero number by zero" $
-            shouldFail $ applyBinop "/" (NumV 3) (NumV 0)
+            shouldFail $ doApplyBinop "/" (NumV 3) (NumV 0)
         it "should fail to divide by zero by zero" $
-            shouldFail $ applyBinop "/" (NumV 0) (NumV 0)
+            shouldFail $ doApplyBinop "/" (NumV 0) (NumV 0)
     describe "eq?" $ do
         let wrap x = Right $ BoolV x
-        let eqHuh = applyBinop "eq?"
+        let eqHuh = doApplyBinop "eq?"
         it "should compare equal numbers" $
             NumV 3 `eqHuh` NumV 3 `shouldBe` wrap True
         it "should compare unequal numbers" $
@@ -68,7 +73,7 @@ spec = do
             ClosureV ["a", "b"] (IdC "b") emptyEnvironment
                 `eqHuh` NumV 10 `shouldBe` wrap False
     describe "<=" $ do
-        let leq = applyBinop "<="
+        let leq = doApplyBinop "<="
         it "should return true when strictly smaller" $
             NumV 3 `leq` NumV 5 `shouldBe` Right (BoolV True)
         it "should return true when equal" $

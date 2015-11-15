@@ -7,6 +7,8 @@ module Main(main) where
 import System.Exit
 import System.IO
 
+import Control.Monad.Except (runExcept)
+
 import CoreTypes
 import Interpreter (topEval)
 
@@ -15,4 +17,4 @@ printResult (Left err) = hPutStrLn stderr err >> exitFailure
 printResult (Right val) = putStrLn (serialize val) >> exitSuccess
 
 main :: IO ()
-main = getContents >>= (printResult . topEval)
+main = getContents >>= (printResult . runExcept . topEval)

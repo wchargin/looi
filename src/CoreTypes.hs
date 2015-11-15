@@ -1,6 +1,7 @@
 module CoreTypes where
 
 import Control.Monad.State (State, gets, modify)
+import Control.Monad.Except (Except)
 
 import qualified Data.Map as Map
 
@@ -12,7 +13,7 @@ data Value = NumV NumericValue
            | ClosureV [Identifier] ExprC Environment
            deriving (Eq, Show)
 
-type Binop = Value -> Value -> Either String Value
+type Binop = Value -> Value -> Except String Value
 
 type Identifier = String
 

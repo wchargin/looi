@@ -2,6 +2,8 @@ module InterpreterSpec where
 
 import Test.Hspec
 
+import Control.Monad.Except (runExcept)
+
 import CoreTypes
 import Interpreter
 
@@ -58,10 +60,10 @@ spec = do
         \      {{fact fact} 5}}" `shouldYield` NumV 120
 
 shouldYield :: String -> Value -> Expectation
-shouldYield input output = topEval input `shouldBe` Right output
+shouldYield input output = runExcept (topEval input) `shouldBe` Right output
 
 shouldFailWith :: String -> String -> Expectation
-shouldFailWith input message = case topEval input of
+shouldFailWith input message = case runExcept (topEval input) of
     Left error      -> error `shouldContain` message
     Right result    -> expectationFailure $ concat
         [ "expected failure matching "
