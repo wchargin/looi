@@ -51,6 +51,9 @@ parse (Number n) = return $ ValueC $ NumV n
 parse (Symbol "true") = return $ ValueC $ BoolV True
 parse (Symbol "false") = return $ ValueC $ BoolV False
 --
+-- array initializers with length and value
+parse (List (Symbol "new-array" : operands)) = parseNewArray operands
+--
 -- binary operators
 parse (List (target@(Symbol name):operands))
     | isBinopName name  = parseBinop name operands
@@ -126,6 +129,13 @@ parseIf args = do
     ensureArity 3 "`if'-expression" args
     [guard, true, false] <- mapM parse args
     return $ IfC guard true false
+
+-- Parse an array initializer with length and initial value.
+parseNewArray :: [SExp] -> ParseResult
+parseNewArray args = do
+    ensureArity 2 "`newArrayC' expression" args
+    [len, val] <- mapM parse args
+    return $ NewArrayC len val
 
 -- Parse a function application.
 parseApplication :: SExp -> [SExp] -> ParseResult

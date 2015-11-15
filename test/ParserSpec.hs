@@ -157,6 +157,21 @@ parseSpec = describe "parse" $ do
                 Right (AppC (IdC "my-if")
                        [ValueC (BoolV True), ValueC (NumV 10), IdC "other"])
 
+    context "when parsing new-arrays" $ do
+        it "should parse a new-array with literals" $
+            doParse (List [ Symbol "new-array"
+                          , Number 10
+                          , Symbol "true"
+                          ]) `shouldBe`
+                Right (NewArrayC (ValueC $ NumV 10) (ValueC $ BoolV True))
+        it "should parse a new-array with expression opearnds" $
+            doParse (List [ Symbol "new-array"
+                          , List [Symbol "+", Number 1, Number 2]
+                          , List [Symbol "+", Number 3, Number 4]
+                          ]) `shouldBe`
+            Right (NewArrayC (BinopC "+" (ValueC $ NumV 1) (ValueC $ NumV 2))
+                            (BinopC "+" (ValueC $ NumV 3) (ValueC $ NumV 4)))
+
 topParseSpec :: Spec
 topParseSpec = describe "topParse" $ do
     it "should properly parse a reasonable program" $
