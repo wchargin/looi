@@ -1,4 +1,4 @@
-# looi
+# looi [![Build Status](https://travis-ci.org/wchargin/looi.svg?branch=master)](https://travis-ci.org/wchargin/looi)
 
 A toy Scheme-like language.
 
